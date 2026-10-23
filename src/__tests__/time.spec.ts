@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatRelativeTime } from '@/lib/utils/time'
+import { formatDateTime, formatRelativeTime } from '@/lib/utils/time'
 
 const NOW = 1_700_000_000_000
 
@@ -22,5 +22,14 @@ describe('formatRelativeTime（F-104）', () => {
 
   it('更早显示具体日期', () => {
     expect(formatRelativeTime(NOW - 5 * 86_400_000, NOW)).toMatch(/\d{4}\/\d{1,2}\/\d{1,2}/)
+  })
+})
+
+// formatDateTime（F-207）：输出依赖宿主时区与 ICU，只做年份与 24 小时制的宽松断言
+describe('formatDateTime', () => {
+  it('包含年份且采用 24 小时制（不出现上/下午标记）', () => {
+    const text = formatDateTime(NOW)
+    expect(text).toContain('2023')
+    expect(text).not.toMatch(/(上午|下午|AM|PM)/i)
   })
 })

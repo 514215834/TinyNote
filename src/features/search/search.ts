@@ -17,3 +17,15 @@ export function filterNotes(notes: Note[], rawQuery: string): Note[] {
     .sort((a, b) => Number(b.inTitle) - Number(a.inTitle))
     .map((hit) => hit.note)
 }
+
+/** F-205：按文件夹过滤；folderId 为 null 表示「全部笔记」，不过滤 */
+export function filterByFolder(notes: Note[], folderId: string | null): Note[] {
+  return folderId === null ? notes : notes.filter((note) => note.folderId === folderId)
+}
+
+/** F-205：按标签过滤；tag 为 null 时不过滤，标签匹配大小写不敏感 */
+export function filterByTag(notes: Note[], tag: string | null): Note[] {
+  if (tag === null) return notes
+  const target = tag.toLowerCase()
+  return notes.filter((note) => note.tags.some((item) => item.toLowerCase() === target))
+}

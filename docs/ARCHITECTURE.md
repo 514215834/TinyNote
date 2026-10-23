@@ -48,7 +48,7 @@ flowchart TB
     subgraph UI["UI 层（Vue 3 组件）"]
         A1["NoteEditor（编辑/分栏/预览）"]
         A2["NoteListSidebar（搜索/列表）"]
-        A3["设置 / 回收站 / 命令面板（后续版本）"]
+        A3["设置 / 回收站 / 命令面板（回收站已于 v0.2 落地，其余后续版本）"]
     end
     subgraph APP["应用层（Pinia Store + Composables）"]
         B1["notesStore：列表、选中态、CRUD"]
@@ -209,10 +209,13 @@ tinynote/
 │   ├── types/index.ts          # 领域实体（4.1 的落地文件）
 │   ├── features/               # 按功能域组织（核心可迭代单元）
 │   │   ├── notes/              #   NoteListSidebar / NotesView / NoteEditor
-│   │   │   ├── stores/notes.ts           # Pinia：列表、选中态、CRUD
+│   │   │   ├── stores/notes.ts           # Pinia：列表、回收站、选中态、过滤态、CRUD
 │   │   │   ├── composables/useAutoSave.ts
-│   │   │   └── notes.ts                  # 纯函数：displayTitle、makeExcerpt
-│   │   ├── search/             #   search.ts（纯过滤函数）+ stores/search.ts
+│   │   │   └── notes.ts                  # 纯函数：displayTitle、makeExcerpt、置顶排序
+│   │   ├── folders/             #   （v0.2）folders.ts + stores/folders.ts
+│   │   ├── tags/                #   （v0.2）标签解析/统计纯函数
+│   │   ├── trash/               #   （v0.2）trash.ts（30 天清理口径）+ TrashView
+│   │   ├── search/             #   search.ts（纯过滤函数）+ highlight.ts + stores/search.ts
 │   │   ├── editor/             #   （v0.3）vue-codemirror 封装
 │   │   ├── backup/             #   （v0.3）导出/导入
 │   │   └── settings/           #   stores/settings.ts（主题）
