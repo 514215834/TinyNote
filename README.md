@@ -2,19 +2,24 @@
 
 部署在 GitHub Pages 上的**本地优先（local-first）Markdown 笔记应用**：纯前端（Vue 3 + TypeScript）、无后端，笔记数据全部保存在你自己的浏览器中，随时可导出带走。
 
-## ✨ 功能（v0.2）
+## ✨ 功能（v0.3）
 
 - Markdown 笔记新建 / 编辑 / 删除（软删除）
+- **CodeMirror 6 编辑器**：Markdown 语法高亮、可选行号（统计栏切换）、分栏下编辑/预览滚动联动
+- **图片粘贴/拖拽**：图片自动存入本地附件库，正文插入内部引用，预览直接显示
+- **大纲（TOC）**：预览态展示标题大纲，点击平滑跳转
+- **导出**：单篇 `.md`、全部笔记 `.md zip`；**全量备份** `tinynote-backup.zip`（含附件，可还原导）
+- **备份导入**：支持 v0.3 起 zip 与 v0.1–v0.2 的 JSON 备份，版本校验 + 自动迁移，覆盖恢复前确认
+- Markdown 预览支持表格、删除线、**任务列表**、**脚注**；`html: false` 安全基线
 - **文件夹**（单层）：侧边栏管理、拖拽或菜单移动笔记、删除后笔记自动移回未分类
 - **标签**：编辑器内打标签，侧边栏标签云点击过滤
 - **置顶**：重要笔记固定在列表最前
 - **回收站**：恢复 / 彻底删除 / 清空，进入超 30 天启动时自动清理
 - **自动保存**：输入防抖 + 失焦即存 + 关页兜底，无需手动保存
-- 编辑 / 分栏 / 预览三种模式，代码块高亮，GFM 表格与删除线
 - **搜索增强**：关键词高亮、按文件夹/标签过滤、显示结果数（标题命中优先）
 - **快捷键**：`Ctrl+N` 新建 · `Ctrl+K` 搜索 · `Ctrl+E` 预览 · `Ctrl+D` 删除
 - **统计信息**：字数 / 字符数、创建与更新时间
-- 深浅色主题：跟随系统，可手动切换
+- 深浅色主题：跟随系统，可手动切换（编辑器主题同步切换）
 - 数据存 IndexedDB，纯本地，不出浏览器
 
 ## 📚 文档导航
@@ -27,7 +32,7 @@
 
 ## 🛠 技术栈
 
-Vue 3（`<script setup>` + TS）· Pinia · vue-router（Hash）· Dexie/IndexedDB · markdown-it + highlight.js · Tailwind CSS 4 · Vite · Vitest
+Vue 3（`<script setup>` + TS）· Pinia · vue-router（Hash）· Dexie/IndexedDB · CodeMirror 6（vue-codemirror）· markdown-it + highlight.js + 脚注/任务列表插件 · fflate（zip 备份）· Tailwind CSS 4 · Vite · Vitest
 
 ## 快速开始
 
@@ -52,4 +57,4 @@ push 到 `main` 分支后，[deploy.yml](./.github/workflows/deploy.yml) 会自�
 
 ## 迭代路线
 
-当前进度：**v0.2 已实现**。后续：v0.3 编辑体验（CodeMirror/附件/备份）→ v0.4 可靠性（PWA/历史版本）→ v0.5 同步 → v1.0 打磨。详见 [ROADMAP](./docs/ROADMAP.md)。
+当前进度：**v0.3 已实现**。后续：v0.4 可靠性（PWA/历史版本/备份提醒）→ v0.5 同步 → v1.0 打磨。详见 [ROADMAP](./docs/ROADMAP.md)。

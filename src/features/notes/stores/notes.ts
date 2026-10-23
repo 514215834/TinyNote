@@ -144,6 +144,7 @@ export const useNotesStore = defineStore('notes', () => {
     activeFolderId,
     activeTag,
     init,
+    reload,
     createNote,
     saveChanges,
     setTags,

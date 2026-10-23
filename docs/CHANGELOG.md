@@ -2,6 +2,42 @@
 
 本文件记录每个版本的功能点（编号见 [ROADMAP](./ROADMAP.md)）、数据 schema 变更与已知问题。
 
+## v0.3.0（2026-10-23，待发布）
+
+编辑体验升级：从「能用」到「好用」，并补齐数据安全的出口（备份）。
+
+### 功能
+
+- F-301 CodeMirror 6 编辑器（ADR-004 落地）：`vue-codemirror` 封装为独立组件，对外只暴露 v-model 式接口，store 层不感知；Markdown 语法高亮、自动换行、**行号可选**（统计栏一键开关，偏好存 localStorage）；编辑/预览两侧滚动按**比例联动**（分栏模式）
+- F-302 大纲（TOC）：预览态右侧展示标题大纲，点击平滑跳转；标题条目的锚点 id 由纯函数统一生成（`slugify` + 文档序去重 `-1/-2`），与预览 DOM 中写入的 id 完全一致；标题文本剥除行内标记
+- F-303 图片粘贴/拖拽：粘贴或拖入图片 → 元数据 + Blob 落入新 `attachments` 表 → 正文光标处插入内部引用 `![名称](tinynote-attachment://<id>)` → 预览经 `env` 注入的 blob URL 映射解析显示；**单附件 ≤ 10MB**，超限/非图片不拦截默认行为；blob URL 与编辑器实例同生命周期（切换笔记 `revokeObjectURL`）；物理删除笔记/清空回收站时**同事务连带删除附件**
+- F-304 导出 Markdown：编辑区一键导出当前笔记 `.md`（标题补 `# H1` 首行）；顶栏「导出全部笔记」产出 `tinynote-notes-YYYYMMDD.zip`（`notes/*.md` + README 说明，不含回收站与附件，面向通用可读）
+- F-305 全量备份/恢复（backup 格式 schemaVersion 2）：顶栏数据菜单导出 `tinynote-backup-YYYYMMDD.zip`（`manifest.json` + `notes/*.md` + `assets/*`）；导入 zip 或 **v0.1/v0.2 的 legacy JSON** 均走同一校验+迁移管线——`format` 与 `schemaVersion` 校验（v1→v2 补空附件列表，未来版本拒绝并提示升级），恢复为**单事务全量覆盖**，完成后自动刷新列表
+- F-306 GFM 增强：预览完整支持**任务列表**（复选框只读，不接受用户 HTML）与**脚注**（`markdown-it-task-lists` / `markdown-it-footnote`）
+
+### 数据 schema
+
+- **IndexedDB schema v2 迁移**：新增 `attachments: 'id, noteId'` 表（升级回调为空动作，旧数据零改造）；schema 测试覆盖「v1 老库打开 v2 表就绪且笔记原样」「全新库直接建 v2」
+- 新增 attachmentRepository（get/listByNote/listAll/save/deleteByIds/deleteByNote/replaceAll）
+- 新增 backupPort：`snapshot` / `restore`（restore 在单事务内清空+整批写入 notes/folders/attachments）
+- 备份格式升级：`BackupFile` 增加可选 `attachments`（`{id, noteId, name, mime, size, createdAt, file}`，`file` 为 zip 内 `assets/<id>.<ext>` 路径）；导入 legacy v1 JSON 自动补空数组
+
+### 测试
+
+- 新增单测：outline（slug 约定/去重 id 与渲染一致）、attachments（准入/引用协议/光标插入）、attachmentRepository（Blob 走真实 Dexie 路径）、backup（校验与 v1→v2 迁移/导出 manifest/**zip 往返导入还原**/附件缺失跳过）、dbSchema（v1→v2 迁移）
+- markdown 单测扩展：任务列表、脚注、标题锚点 id 与去重、附件引用解析及缺失占位
+- 全量 `npm run test:run` 122 用例通过；`npm run build`（vue-tsc 类型检查前置）通过
+
+### 已知问题 / 范围外
+
+- 正文删除附件引用后，附件记录仍保留（孤儿附件）；备份包体积包含全部历史附件。自动清理留给 v0.4 与快照机制一并设计
+- CodeMirror 编辑器内围栏代码块不做嵌套语言高亮（预览侧仍由 highlight.js 负责），保持编辑器包体精简
+- 打包体积 1.17MB（gzip 0.41MB），构建提示可拆 chunk；拆分/懒加载列入 v1.0 的 F-604 性能预算
+- 滚动联动为「按比例」近似（非按标题偏移）；分栏下首次切换模式时以重新测量兜底
+- E2E（Playwright）未落地：验收用例（粘贴图片→清库→备份还原→图片可显示）需手动执行；单测层已覆盖 zip 往返与迁移等效逻辑
+
+---
+
 ## v0.2.0（2026-10-23，待发布）
 
 组织与效率：笔记超过几十篇后依然找得到、管得住。

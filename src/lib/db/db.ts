@@ -1,10 +1,11 @@
 import Dexie, { type Table } from 'dexie'
-import type { Folder, Note, Setting } from '@/types'
+import type { Attachment, Folder, Note, Setting } from '@/types'
 
 export class TinyNoteDB extends Dexie {
   notes!: Table<Note, string>
   folders!: Table<Folder, string>
   settings!: Table<Setting, string>
+  attachments!: Table<Attachment, string>
 
   constructor(name = 'tinynote') {
     super(name)
@@ -15,6 +16,15 @@ export class TinyNoteDB extends Dexie {
       notes: 'id, folderId, updatedAt, *tags, trashedAt',
       folders: 'id, name, order',
       settings: 'key',
+    })
+    this.version(2).stores({
+      notes: 'id, folderId, updatedAt, *tags, trashedAt',
+      folders: 'id, name, order',
+      settings: 'key',
+      // F-303：图片等附件二进制表（schema v2 新增，见 types.Attachment）
+      attachments: 'id, noteId',
+    }).upgrade(async () => {
+      // v1 → v2 只新增表，不改造既有数据，无需动作
     })
   }
 }
