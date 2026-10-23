@@ -1,0 +1,80 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* highlight.js token 配色：浅/深两套 CSS 变量，替代整份 hljs 主题样式表 */
+:root {
+  --hl-fg: #24292e;
+  --hl-keyword: #cf222e;
+  --hl-string: #0a3069;
+  --hl-number: #0550ae;
+  --hl-comment: #57606a;
+  --hl-function: #8250df;
+  --hl-variable: #953800;
+  --hl-attr: #116329;
+}
+
+.dark {
+  --hl-fg: #e6edf3;
+  --hl-keyword: #ff7b72;
+  --hl-string: #a5d6ff;
+  --hl-number: #79c0ff;
+  --hl-comment: #8b949e;
+  --hl-function: #d2a8ff;
+  --hl-variable: #ffa657;
+  --hl-attr: #7ee787;
+}
+
+.hljs {
+  color: var(--hl-fg);
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-tag,
+.hljs-meta,
+.hljs-doctag,
+.hljs-deletion {
+  color: var(--hl-keyword);
+}
+.hljs-string,
+.hljs-regexp,
+.hljs-quote,
+.hljs-addition {
+  color: var(--hl-string);
+}
+.hljs-number,
+.hljs-literal,
+.hljs-symbol,
+.hljs-bullet {
+  color: var(--hl-number);
+}
+.hljs-comment {
+  color: var(--hl-comment);
+  font-style: italic;
+}
+.hljs-title,
+.hljs-title.function_,
+.hljs-title.class_,
+.hljs-type {
+  color: var(--hl-function);
+}
+.hljs-variable,
+.hljs-template-variable,
+.hljs-attribute {
+  color: var(--hl-variable);
+}
+.hljs-attr,
+.hljs-name,
+.hljs-property,
+.hljs-selector-attr,
+.hljs-selector-class,
+.hljs-selector-id,
+.hljs-built_in {
+  color: var(--hl-attr);
+}
+.hljs-emphasis {
+  font-style: italic;
+}
+.hljs-strong {
+  font-weight: 600;
+}
