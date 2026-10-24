@@ -1,14 +1,16 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import type { Note } from '@/types'
+import type { NoteMeta } from '@/types'
 import { createId } from '@/lib/utils/id'
 import { noteRepository } from '@/lib/db/repositories/noteRepository'
+import { makeExcerpt } from '@/features/notes/notes'
 import { trashCutoff } from '@/features/trash/trash'
 
 export const useNotesStore = defineStore('notes', () => {
-  const notes = ref<Note[]>([])
+  /** 元数据列表（F-523 正文分离）：不含正文，正文经 loadContent 按需读取 */
+  const notes = ref<NoteMeta[]>([])
   /** 回收站中的笔记（F-204），init 时与列表一并加载 */
-  const trashedNotes = ref<Note[]>([])
+  const trashedNotes = ref<NoteMeta[]>([])
   const selectedId = ref<string | null>(null)
   const loaded = ref(false)
   /** 列表过滤态（F-201/F-205）：activeFolderId 为 null 表示「全部笔记」，activeTag 为 null 表示不按标签过滤 */
@@ -16,6 +18,24 @@ export const useNotesStore = defineStore('notes', () => {
   const activeTag = ref<string | null>(null)
 
   const selectedNote = computed(() => notes.value.find((note) => note.id === selectedId.value) ?? null)
+
+  /** 正文缓存（F-523）：只保留最近一篇（编辑器同时只打开一篇），loadContent 单飞防重复拉取 */
+  let contentCache: { id: string; content: string } | null = null
+  const contentPromises = new Map<string, Promise<string>>()
+
+  function loadContent(id: string): Promise<string> {
+    if (contentCache?.id === id) return Promise.resolve(contentCache.content)
+    let pending = contentPromises.get(id)
+    if (pending === undefined) {
+      pending = noteRepository.getContent(id).then((content) => {
+        contentCache = { id, content }
+        contentPromises.delete(id)
+        return content
+      })
+      contentPromises.set(id, pending)
+    }
+    return pending
+  }
 
   async function init(): Promise<void> {
     await reload()
@@ -32,10 +52,10 @@ export const useNotesStore = defineStore('notes', () => {
 
   async function createNote(): Promise<void> {
     const now = Date.now()
-    const note: Note = {
+    const note: NoteMeta = {
       id: createId(),
       title: '',
-      content: '',
+      excerpt: makeExcerpt(''),
       folderId: activeFolderId.value, // 在某个文件夹视图下新建 → 归入该文件夹（F-201）
       tags: [],
       pinned: false,
@@ -44,21 +64,25 @@ export const useNotesStore = defineStore('notes', () => {
       createdAt: now,
       updatedAt: now,
     }
-    await noteRepository.save(note)
+    await noteRepository.saveWithContent(note, '')
     notes.value = [note, ...notes.value]
     selectedId.value = note.id
   }
 
-  /** 写通保存：内容未变化时跳过，避免切换笔记时的空写 */
-  async function saveChanges(id: string, patch: Pick<Note, 'title' | 'content'>): Promise<void> {
+  /**
+   * 写通保存（编辑器自动保存路径）：元数据与正文同事务落库（excerpt 由 repository 统一重算）。
+   * 「内容未变化跳过」的判定在编辑器侧完成（对比保存基线），此处只负责写入。
+   */
+  async function saveChanges(id: string, patch: { title: string; content: string }): Promise<void> {
     const note = notes.value.find((n) => n.id === id)
     if (!note) return
-    if (note.title === patch.title && note.content === patch.content) return
     note.title = patch.title
-    note.content = patch.content
+    note.excerpt = makeExcerpt(patch.content)
     note.updatedAt = Date.now()
     notes.value = [note, ...notes.value.filter((n) => n.id !== id)]
-    await noteRepository.save(note)
+    await noteRepository.saveWithContent(note, patch.content)
+    // 刚写入的正文进入缓存，编辑器随后的 loadContent 命中缓存
+    contentCache = { id, content: patch.content }
   }
 
   /** F-202：整表写入标签（去重与解析由调用方完成）；无变化时跳过写库 */
@@ -69,7 +93,7 @@ export const useNotesStore = defineStore('notes', () => {
     note.tags = tags
     note.updatedAt = Date.now()
     notes.value = [note, ...notes.value.filter((n) => n.id !== id)]
-    await noteRepository.save(note)
+    await noteRepository.saveMeta(note)
   }
 
   /** F-203：置顶切换；已置顶的笔记经 sortNotesForList 排在列表最前 */
@@ -77,7 +101,7 @@ export const useNotesStore = defineStore('notes', () => {
     const note = notes.value.find((n) => n.id === id)
     if (!note) return
     note.pinned = !note.pinned
-    await noteRepository.save(note)
+    await noteRepository.saveMeta(note)
   }
 
   /** F-201：移动笔记到文件夹；folderId 传 null 表示移回未分类 */
@@ -86,7 +110,7 @@ export const useNotesStore = defineStore('notes', () => {
     if (!note) return
     if (note.folderId === folderId) return
     note.folderId = folderId
-    await noteRepository.save(note)
+    await noteRepository.saveMeta(note)
   }
 
   async function softDelete(id: string): Promise<void> {
@@ -143,6 +167,7 @@ export const useNotesStore = defineStore('notes', () => {
     loaded,
     activeFolderId,
     activeTag,
+    loadContent,
     init,
     reload,
     createNote,

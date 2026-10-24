@@ -1,19 +1,22 @@
-import type { Note } from '@/types'
+import type { NoteMeta } from '@/types'
 
-/** 列表与删除确认弹窗展示用的标题：优先标题字段，缺失时回退正文首行，再回退占位文案 */
-export function displayTitle(note: Pick<Note, 'title' | 'content'>): string {
+/**
+ * 列表与删除确认弹窗展示用的标题：优先标题字段，缺失时回退摘要/正文首行，再回退占位文案。
+ * 元数据口径（F-523）传 NoteMeta 的 excerpt；备份口径（含 content 的 Note）回退正文原始首行。
+ */
+export function displayTitle(note: { title: string; excerpt?: string; content?: string }): string {
   const title = note.title.trim()
   if (title) return title
-  const firstLine = note.content
+  const firstLine = (note.excerpt ?? note.content ?? '')
     .split('\n')
     .map((line) => line.trim())
-    .find((line) => line.length > 0)
+    .find((line) => line.length > 0 && line !== '空白笔记')
   if (firstLine) return firstLine.slice(0, 30)
   return '无标题笔记'
 }
 
 /** 置顶排序（F-203）：置顶笔记在列表最前；入参应已按 updatedAt 倒序，稳定排序保持组内原序 */
-export function sortNotesForList<T extends Pick<Note, 'pinned'>>(notes: T[]): T[] {
+export function sortNotesForList<T extends Pick<NoteMeta, 'pinned'>>(notes: T[]): T[] {
   return [...notes].sort((a, b) => Number(b.pinned) - Number(a.pinned))
 }
 

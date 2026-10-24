@@ -33,7 +33,7 @@ TinyNote 是一个**部署在 GitHub Pages 上的本地优先（local-first）Ma
 | 代码编辑器 | 阶段一：受控 `textarea`（v0.1–v0.2）；阶段二升级 **vue-codemirror（CodeMirror 6）**，v0.3 已落地 | MVP 快速交付；CodeMirror 6 模块化、移动端友好、语法高亮可扩展，是迭代终态 | Monaco（桌面级体积，不适合移动场景） |
 | 样式 | **Tailwind CSS 4 + @tailwindcss/typography** | 迭代 UI 速度最快；typography 插件直接给 Markdown 预览提供排版 | CSS Modules |
 | PWA | **vite-plugin-pwa**（Workbox，v0.4 已落地） | 一套配置获得离线缓存 + 桌面安装（纯 Web/PWA 形态，不做 Electron/Tauri 打包） | 手写 Service Worker |
-| 搜索 | 阶段一：内存全量扫描；阶段二升级 **MiniSearch** | 数千篇以内直接扫描足够快；MiniSearch 支持前缀/模糊匹配，中文可配 n-gram 分词 | FlexSearch |
+| 搜索 | 元数据（标题/标签/摘要）内存过滤 + 正文 Dexie 游标流式扫描（F-524）；倒排索引（MiniSearch + 中文 n-gram）在笔记 >5000 篇或 contents >50MB 时再切换 | 流式扫描不把正文载入内存；防抖 200ms + 陈旧查询 tx.abort() 中止 + 查询结果 LRU 缓存 | FlexSearch |
 | 单元测试 | **Vitest + @vue/test-utils（happy-dom）+ fake-indexeddb** | 与 Vite 共享配置；fake-indexeddb 让存储层测试跑真实 Dexie 代码路径 | Jest |
 | E2E 测试 | **Playwright** | 跨浏览器、自动等待、CI 友好 | Cypress |
 | 类型检查 | **vue-tsc** | 覆盖 SFC 模板的类型检查，作为构建前置步骤 | — |
@@ -105,6 +105,11 @@ export interface Note {
   updatedAt: number;
 }
 
+// v0.5（F-523 正文分离）起，IndexedDB notes 表行不含 content：
+// export type NoteMeta = Omit<Note, 'content'> & { excerpt: string }  // 保存时计算的纯文本摘要
+// export interface NoteContent { id: string; content: string }        // contents 表行，与 notes 按 id 1:1
+// Note（含 content）保留为备份/编辑器 DTO：导出时 join、导入时拆分，备份格式 schemaVersion 2 不变。
+
 export interface Folder {
   id: string;
   name: string;
@@ -169,6 +174,19 @@ db.version(3).stores({
   attachments: 'id, noteId',
   snapshots: 'id, noteId, createdAt',
 }).upgrade(async (tx) => { /* 无需改造旧数据，留空即可 */ });
+
+// v4（v0.5：F-523 正文分离）—— notes 行瘦身为元数据 NoteMeta（含 excerpt 摘要），
+// 正文 1:1 拆入 contents 表；列表/启动只读元数据，正文按需读取、搜索流式扫描
+db.version(4).stores({
+  notes: 'id, folderId, updatedAt, *tags, trashedAt',
+  folders: 'id, name, order',
+  settings: 'key',
+  attachments: 'id, noteId',
+  snapshots: 'id, noteId, createdAt',
+  contents: 'id',
+}).upgrade(async (tx) => {
+  // 一次性把 notes.content 拆入 contents，notes 行重写为元数据（补 excerpt）
+});
 ```
 
 要点：
@@ -182,8 +200,8 @@ db.version(3).stores({
 
 | 存储 | 内容 | 说明 |
 | --- | --- | --- |
-| IndexedDB（Dexie） | 笔记、文件夹、附件、历史版本 | 用户核心数据，唯一事实来源 |
-| localStorage | 主题、编辑器偏好、最近打开的笔记 id 等轻量 UI 状态 | 丢了不心疼，且体积小、同步读取快（@vueuse/core 的 `useDark`/`useLocalStorage` 直接托管） |
+| IndexedDB（Dexie） | 笔记（元数据）、正文、文件夹、附件、历史版本 | 用户核心数据，唯一事实来源 |
+| localStorage | 主题色/字体/字号/行宽（F-521）、深浅色、查看模式、行号开关、备份提醒贪睡等轻量 UI 状态 | 丢了不心疼，且体积小、同步读取快（@vueuse/core 的 `useDark`/`useLocalStorage` 直接托管；键名 `tinynote:*`，「清空全部数据」时一并清除） |
 
 ### 4.4 备份与导出格式的演进
 
@@ -203,6 +221,7 @@ db.version(3).stores({
 | ADR-006 | Markdown 安全 | markdown-it **默认 `html: false`**：源文本中的原始 HTML 标签一律转义；`v-html` 仅用于渲染 markdown-it 自身的输出（全项目唯一插口）；外链统一注入 `target="_blank"` + `rel="noopener noreferrer"` |
 | ADR-007 | Markdown 库选型 | **markdown-it** 优于 marked：默认安全基线（转义而非放行 HTML）、插件生态（v0.3 的任务列表/脚注直接加插件）、`linkify` 配置齐备 |
 | ADR-008 | 回收站索引 | 不索引 `trashed` 布尔字段（IndexedDB 键不支持 boolean/null），改用 `trashedAt` 数值索引表达"回收站全集"（见 4.2） |
+| ADR-009 | 正文分离 | **notes 表只存元数据（NoteMeta），正文拆入 contents 表按需读取**（v0.5/F-523）。列表/启动内存与笔记总量脱钩，单篇超大笔记不再拖慢全局；代价是保存写两表（单事务）与备份导出 join。备份格式 schemaVersion 2 保持不变 |
 
 ## 6. 目录结构
 
@@ -313,7 +332,8 @@ jobs:
 | 主题 | 策略 |
 | --- | --- |
 | 自动保存 | 输入防抖 800ms 后写库 + 失焦立即保存 + `beforeunload`/`pagehide` 尽力 flush，杜绝"写了没存" |
-| 搜索性能 | 输入防抖 200ms（`watchDebounced`）；MVP 内存扫描，笔记量 >5000 后切换 MiniSearch 倒排索引 |
+| 搜索性能 | 输入防抖 200ms（`watchDebounced`）；元数据内存过滤 + 正文游标流式扫描（F-524），笔记量 >5000 或 contents >50MB 后切换 MiniSearch 倒排索引 |
+| 大文本编辑 | 预览渲染/大纲/字数统计 250ms 防抖（F-523）；正文分离后启动与列表不加载正文；快照/保存仍为全文写（IndexedDB 无增量更新） |
 | 长列表 | 列表项超过阈值（约 200 条可视）后引入虚拟滚动（`@tanstack/vue-virtual`） |
 | 大文档 | 编辑器升级 CodeMirror 6 后，十万字符级文档流畅渲染；预览侧超长文档分块渲染 |
 | XSS | markdown-it `html: false`（ADR-006）：Markdown 中的 HTML 标签一律按纯文本展示；`v-html` 全项目仅 Markdown 渲染一处插口；外链统一 `target="_blank"` + `rel="noopener noreferrer"`；附件图片（v0.3）只把 `tinynote-attachment://<id>` 替换为本地 blob URL（id 不进入属性，命中未映射时输出固定占位文案） |

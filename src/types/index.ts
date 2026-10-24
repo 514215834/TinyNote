@@ -1,4 +1,5 @@
-/** 笔记：唯一事实来源是 content（Markdown 原文），预览只是渲染结果 */
+/** 笔记：唯一事实来源是 content（Markdown 原文），预览只是渲染结果。
+ *  作为备份/编辑器 DTO 使用；IndexedDB notes 表行见 NoteMeta（F-523 正文分离）。 */
 export interface Note {
   id: string // UUID v7：时间有序（ADR-003）
   title: string
@@ -10,6 +11,18 @@ export interface Note {
   trashedAt: number | null
   createdAt: number
   updatedAt: number
+}
+
+/**
+ * 笔记元数据（F-523 schema v4 正文分离）：notes 表行不含正文，是列表/搜索常驻内存的轻量形态。
+ * excerpt 为保存时计算的纯文本摘要（侧栏展示；标题为空时回退作标题）。
+ */
+export type NoteMeta = Omit<Note, 'content'> & { excerpt: string }
+
+/** contents 表行（F-523）：正文与元数据按 id 1:1 分离存储，按需读取 */
+export interface NoteContent {
+  id: string
+  content: string
 }
 
 export interface Folder {

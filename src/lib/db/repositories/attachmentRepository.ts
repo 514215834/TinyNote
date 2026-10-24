@@ -11,6 +11,12 @@ export const attachmentRepository = {
     return db.attachments.where('noteId').equals(noteId).toArray()
   },
 
+  /** 仅取附件 id（F-523 孤儿清理）：走索引取主键，不读 Blob 本体 */
+  async listIdsByNote(noteId: string): Promise<string[]> {
+    const keys = await db.attachments.where('noteId').equals(noteId).primaryKeys()
+    return keys.map(String)
+  },
+
   async listAll(): Promise<Attachment[]> {
     return db.attachments.toArray()
   },

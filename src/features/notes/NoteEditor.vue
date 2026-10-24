@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, useTemplateRef, watch } from 'vue'
-import { useEventListener } from '@vueuse/core'
+import { storeToRefs } from 'pinia'
+import { useEventListener, watchDebounced } from '@vueuse/core'
 import type { EditorView } from '@codemirror/view'
-import type { Note } from '@/types'
+import type { NoteMeta } from '@/types'
 import { renderMarkdown } from '@/lib/markdown/render'
 import { extractHeadings } from '@/lib/markdown/outline'
 import { useAutoSave } from './composables/useAutoSave'
@@ -11,7 +12,7 @@ import { addTag, removeTag } from '@/features/tags/tags'
 import { countChars, countWords } from './stats'
 import { formatDateTime, formatRelativeTime } from '@/lib/utils/time'
 import { useNotesStore } from './stores/notes'
-import { useSettingsStore } from '@/features/settings/stores/settings'
+import { useSettingsStore, type EditorViewMode } from '@/features/settings/stores/settings'
 import { useAttachmentsStore } from '@/features/editor/stores/attachments'
 import { useHistoryStore } from '@/features/history/stores/history'
 import HistoryPanel from '@/features/history/HistoryPanel.vue'
@@ -19,9 +20,7 @@ import { makeImageMarkdown, pickImageFiles } from '@/features/editor/attachments
 import NoteCodeEditor from '@/features/editor/NoteCodeEditor.vue'
 import { useBackup } from '@/features/backup/useBackup'
 
-type EditorMode = 'edit' | 'split' | 'preview'
-
-const props = defineProps<{ note: Note }>()
+const props = defineProps<{ note: NoteMeta }>()
 
 const notesStore = useNotesStore()
 const settings = useSettingsStore()
@@ -29,15 +28,20 @@ const attachmentsStore = useAttachmentsStore()
 const historyStore = useHistoryStore()
 const backup = useBackup()
 
-const modes: { value: EditorMode; label: string }[] = [
+const modes: { value: EditorViewMode; label: string }[] = [
   { value: 'edit', label: '编辑' },
   { value: 'split', label: '分栏' },
   { value: 'preview', label: '预览' },
 ]
 
-const mode = ref<EditorMode>('edit')
+// 查看模式持久化在 settings（localStorage）：重启与切换笔记后保持上次选择
+const { editorMode: mode } = storeToRefs(settings)
 const title = ref(props.note.title)
-const content = ref(props.note.content)
+/** 正文草稿（F-523）：异步从 contents 表加载，loaded 前不触发保存 */
+const content = ref('')
+const loaded = ref(false)
+/** 最近一次落库的正文基线：与草稿一致时跳过保存，避免失焦/切换时的空写 */
+let savedContent = ''
 const titleInput = useTemplateRef<HTMLInputElement>('titleInput')
 const previewEl = useTemplateRef<HTMLDivElement>('previewEl')
 const editorView = shallowRef<EditorView | null>(null)
@@ -46,24 +50,40 @@ const editorView = shallowRef<EditorView | null>(null)
 // persist 调用时才读取 title/content，因此切换笔记前的待写内容也能被正确保存。
 // 保存成功后追加 F-402 自动快照判定（大变更才落快照）。
 const { schedule, flush, status } = useAutoSave(async () => {
+  if (title.value === props.note.title && content.value === savedContent) return
   await notesStore.saveChanges(props.note.id, { title: title.value, content: content.value })
+  savedContent = content.value
   await historyStore.maybeAutoSnapshot(props.note.id, content.value)
 })
 
-watch([title, content], () => schedule())
+watch([title, content], () => {
+  if (loaded.value) schedule()
+})
 
-onMounted(() => {
-  // 新建的空笔记直接聚焦标题
-  if (props.note.title === '' && props.note.content === '') titleInput.value?.focus()
+onMounted(async () => {
   void attachmentsStore.loadForNote(props.note.id)
   void historyStore.ensureLoaded(props.note.id)
+  // F-523：正文按需加载；加载完成前编辑器不可保存（防把空正文写库）
+  const initial = await notesStore.loadContent(props.note.id)
+  content.value = initial
+  savedContent = initial
+  renderSource.value = initial
+  statsSource.value = initial
+  loaded.value = true
+  // 新建的空笔记直接聚焦标题
+  if (props.note.title === '' && initial === '') titleInput.value?.focus()
 })
 
 onBeforeUnmount(() => {
   // 卸载兜底：先尽力落盘草稿，再做 F-406 孤儿附件清理（正文与历史快照都不再引用才删），
-  // 最后释放 blob URL。历史列表未加载完成时 pruneOrphans 会自动跳过，宁可暂留不误删。
+  // 最后释放 blob URL。历史列表未加载完成时 pruneOrphans 会自动跳过，宁可暂留不误删；
+  // 正文尚未加载完成时同样跳过（无从判定引用，也不能拿空草稿落库）。
   void (async () => {
     await flush()
+    if (!loaded.value) {
+      attachmentsStore.release()
+      return
+    }
     const snapshotContents = historyStore.contents(props.note.id)
     if (snapshotContents !== undefined) {
       await attachmentsStore.pruneOrphans(props.note.id, [content.value, ...snapshotContents])
@@ -92,14 +112,25 @@ watch(mode, async () => {
   editorView.value?.requestMeasure()
 })
 
-// 编辑模式下跳过渲染，避免无预览时白算 Markdown（附件 blob URL 快照随内容/附件变化刷新）
+// 编辑模式下跳过渲染，避免无预览时白算 Markdown（附件 blob URL 快照随内容/附件变化刷新）。
+// 渲染源 250ms 防抖（F-523）：大正文下逐键全量 Markdown 解析是卡顿主因，停顿后才重算预览。
 const attachmentUrls = computed(() => ({ ...attachmentsStore.urls }))
+const renderSource = ref('')
+const statsSource = ref('')
+watchDebounced(
+  content,
+  (value) => {
+    renderSource.value = value
+    statsSource.value = value
+  },
+  { debounce: 250 },
+)
 const html = computed(() =>
-  mode.value === 'edit' ? '' : renderMarkdown(content.value, { attachmentUrls: attachmentUrls.value }),
+  mode.value === 'edit' ? '' : renderMarkdown(renderSource.value, { attachmentUrls: attachmentUrls.value }),
 )
 
 // F-302：预览态的大纲（标题结构与预览锚点逐字对应）
-const headings = computed(() => extractHeadings(content.value))
+const headings = computed(() => extractHeadings(renderSource.value))
 
 function scrollToHeading(id: string): void {
   const target = previewEl.value?.querySelector(`#${CSS.escape(id)}`)
@@ -214,7 +245,8 @@ async function onRestoreSnapshot(snapshotId: string): Promise<void> {
   )
   if (!confirmed) return
   await flush()
-  const restored = await historyStore.restoreSnapshot(props.note, snapshotId)
+  // 当前草稿随调用传入（F-523：store 元数据不含正文）
+  const restored = await historyStore.restoreSnapshot(props.note, snapshotId, content.value)
   if (restored !== null) content.value = restored
 }
 
@@ -235,8 +267,8 @@ function togglePin(): void {
   void notesStore.togglePin(props.note.id)
 }
 
-// F-207：字数/字符数统计（行号开关 F-301）
-const stats = computed(() => ({ words: countWords(content.value), chars: countChars(content.value) }))
+// F-207：字数/字符数统计（随渲染源一并防抖，行号开关 F-301）
+const stats = computed(() => ({ words: countWords(statsSource.value), chars: countChars(statsSource.value) }))
 </script>
 
 <template>
@@ -405,8 +437,15 @@ const stats = computed(() => ({ words: countWords(content.value), chars: countCh
           class="h-full min-w-0 flex-1 overflow-y-auto p-6"
         >
           <!-- v-html 全项目唯一插口：仅渲染 markdown-it（html:false）自身输出，见 ADR-006 -->
+          <!-- F-521：字体/字号/行宽由外观偏好变量驱动（main.css :root 定义，设置面板可改） -->
           <article
-            class="prose prose-sm max-w-none prose-pre:bg-gray-100 prose-pre:text-gray-900 dark:prose-invert dark:prose-pre:bg-neutral-800 dark:prose-pre:text-neutral-100"
+            class="prose prose-sm prose-pre:bg-gray-100 prose-pre:text-gray-900 dark:prose-invert dark:prose-pre:bg-neutral-800 dark:prose-pre:text-neutral-100"
+            :style="{
+              fontFamily: 'var(--font-content)',
+              fontSize: 'var(--preview-font-size)',
+              maxWidth: 'var(--content-max-width)',
+              marginInline: 'auto',
+            }"
             v-html="html"
           ></article>
         </div>

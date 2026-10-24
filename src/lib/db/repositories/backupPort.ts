@@ -1,5 +1,7 @@
 import { db } from '../db'
 import type { Attachment, Folder, Note } from '@/types'
+import { makeExcerpt } from '@/features/notes/notes'
+import { noteRepository } from './noteRepository'
 
 /** 备份导出/恢复的数据口径（架构文档 3.1 DATA 层 D4 BackupPort） */
 export interface LibrarySnapshot {
@@ -10,16 +12,20 @@ export interface LibrarySnapshot {
 
 /**
  * 备份相关的存储访问：组件与 store 不直接触碰 IndexedDB（架构文档 3.2）。
- * restore 为全量覆盖语义：在单事务内清空三张表再整批写入，失败自动回滚。
+ * F-523 起 notes 表只存元数据，导出时与 contents 表 join 成完整 Note（备份格式 schemaVersion 2 不变），
+ * 恢复时反向拆分。restore 为全量覆盖语义：在单事务内清空各表再整批写入，失败自动回滚。
  * 注意：快照（F-402）是本地编辑历史，不进入备份导出口径，但恢复时一并清空。
  */
 export const backupPort = {
   async snapshot(): Promise<LibrarySnapshot> {
-    const [folders, notes, attachments] = await Promise.all([
+    const [folders, metas, contents, attachments] = await Promise.all([
       db.folders.toArray(),
       db.notes.toArray(),
+      db.contents.toArray(),
       db.attachments.toArray(),
     ])
+    const contentById = new Map(contents.map((row) => [row.id, row.content]))
+    const notes = metas.map((meta) => noteRepository.toNote(meta, contentById.get(meta.id) ?? ''))
     return { folders, notes, attachments }
   },
 
@@ -27,18 +33,35 @@ export const backupPort = {
     await db.transaction(
       'rw',
       db.notes,
+      db.contents,
       db.folders,
       db.attachments,
       db.snapshots,
       async () => {
         await db.notes.clear()
+        await db.contents.clear()
         await db.folders.clear()
         await db.attachments.clear()
         await db.snapshots.clear()
         await db.folders.bulkPut(data.folders.map((folder) => ({ ...folder })))
-        await db.notes.bulkPut(data.notes.map((note) => ({ ...note, tags: [...note.tags] })))
+        await db.contents.bulkPut(
+          data.notes.map((note) => ({ id: note.id, content: note.content })),
+        )
+        await db.notes.bulkPut(
+          data.notes.map((note) => {
+            const { content, ...rest } = note
+            return { ...rest, tags: [...note.tags], excerpt: makeExcerpt(content) }
+          }),
+        )
         await db.attachments.bulkPut(data.attachments.map((attachment) => ({ ...attachment })))
       },
     )
+  },
+
+  /** F-522 清空全部数据：单事务清空全部六张表（settings 同清，UI 偏好的 localStorage 由调用方处理） */
+  async wipe(): Promise<void> {
+    await db.transaction('rw', db.tables, async () => {
+      await Promise.all(db.tables.map((table) => table.clear()))
+    })
   },
 }

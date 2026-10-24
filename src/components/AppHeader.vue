@@ -7,7 +7,6 @@ import { useBackup } from '@/features/backup/useBackup'
 import { BackupFormatError, BackupVersionError } from '@/features/backup/backup'
 import { useNotesStore } from '@/features/notes/stores/notes'
 import { useFoldersStore } from '@/features/folders/stores/folders'
-import { formatBytes, readStorageSummary, requestPersistentStorage, type StorageSummary } from '@/features/pwa/storage'
 
 const router = useRouter()
 const settings = useSettingsStore()
@@ -18,22 +17,14 @@ const { busy, exportBackupZip, exportNotesZip, importBackupFile } = useBackup()
 /**
  * 数据菜单（F-304/F-305）：全量备份导出 / 导入、全部笔记导出 .md。
  * 导入是覆盖语义，走确认弹窗；菜单点击外部任意位置收起（与侧边栏移动菜单同一交互模式）。
+ * 存储用量/持久化/缓存管理在设置面板（F-521/F-522）。
  */
 const menuOpen = ref(false)
 const menuButton = useTemplateRef<HTMLButtonElement>('menuButton')
 const fileInput = useTemplateRef<HTMLInputElement>('fileInput')
 
-// F-405：菜单打开时读取存储用量与持久化状态（启动时已在 App.vue 申请过持久化）
-const storageSummary = ref<StorageSummary | null>(null)
-
 function toggleMenu(): void {
   menuOpen.value = !menuOpen.value
-  if (menuOpen.value) void readStorageSummary().then((summary) => (storageSummary.value = summary))
-}
-
-async function requestPersist(): Promise<void> {
-  await requestPersistentStorage()
-  storageSummary.value = await readStorageSummary()
 }
 
 useEventListener(document, 'click', (event) => {
@@ -100,7 +91,7 @@ function importErrorMessage(error: unknown): string {
     class="relative z-20 flex h-14 shrink-0 items-center justify-between border-b border-white/50 bg-white/45 px-5 backdrop-blur-2xl backdrop-saturate-150 dark:border-white/8 dark:bg-neutral-900/45"
   >
     <span class="flex items-center gap-2 text-sm font-bold tracking-wide">
-      <span class="flex h-6 w-6 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 text-[13px] text-white shadow-sm">T</span>
+      <span class="flex h-6 w-6 items-center justify-center rounded-lg bg-gradient-to-br from-accent to-accent-strong text-[13px] text-white shadow-sm">T</span>
       TinyNote
     </span>
     <div class="flex items-center gap-1">
@@ -168,24 +159,6 @@ function importErrorMessage(error: unknown): string {
             <span class="block font-medium text-gray-700 dark:text-neutral-200">导出全部笔记</span>
             <span class="block text-[11px] text-gray-400">.md zip（不含附件，通用可读）</span>
           </button>
-          <!-- F-405：存储用量与持久化状态 -->
-          <div
-            v-if="storageSummary"
-            class="mt-1 border-t border-gray-900/8 px-3 py-2 text-[11px] leading-5 text-gray-500 dark:border-white/8 dark:text-neutral-400"
-          >
-            <span>
-              本地存储 {{ formatBytes(storageSummary.usage) }} / {{ formatBytes(storageSummary.quota) }}
-              · {{ storageSummary.persisted ? '已持久化' : '未持久化' }}
-            </span>
-            <button
-              v-if="!storageSummary.persisted"
-              type="button"
-              class="ml-1 text-indigo-600 hover:underline dark:text-indigo-400"
-              @click="requestPersist"
-            >
-              申请持久化
-            </button>
-          </div>
         </div>
         <input
           ref="fileInput"
@@ -196,6 +169,31 @@ function importErrorMessage(error: unknown): string {
           @change="onImportFileChange"
         />
       </div>
+
+      <!-- F-521：设置面板入口（外观定制） -->
+      <button
+        type="button"
+        class="rounded-lg p-2 text-gray-500 transition-colors hover:bg-white/70 hover:text-gray-800 dark:text-neutral-400 dark:hover:bg-white/10 dark:hover:text-neutral-100"
+        :class="{ 'bg-white/70 text-gray-900 dark:bg-white/10 dark:text-neutral-100': settings.panelOpen }"
+        title="设置：外观与缓存"
+        aria-label="设置"
+        @click="settings.openPanel()"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      </button>
 
       <button
         type="button"

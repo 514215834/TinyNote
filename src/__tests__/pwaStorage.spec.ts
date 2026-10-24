@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { formatBytes, readStorageSummary, requestPersistentStorage } from '@/features/pwa/storage'
+import {
+  clearAppCaches,
+  formatBytes,
+  listCacheSummary,
+  readStorageSummary,
+  requestPersistentStorage,
+} from '@/features/pwa/storage'
 
 describe('formatBytes（F-405 存储用量展示）', () => {
   it('按 B / KB / MB / GB 进位并保留一位小数（1024 进制）', () => {
@@ -23,5 +29,16 @@ describe('存储 API 降级（F-405：不支持的环境静默返回 null）', (
     }
     const persisted = await requestPersistentStorage()
     expect(persisted === null || typeof persisted === 'boolean').toBe(true)
+  })
+})
+
+describe('离线缓存摘要与清理（F-522：不支持的环境静默返回 null）', () => {
+  it('happy-dom 未实现 Cache Storage 时不抛错且返回 null', async () => {
+    const summary = await listCacheSummary()
+    if (summary !== null) {
+      expect(summary.every((cache) => typeof cache.name === 'string' && typeof cache.entries === 'number')).toBe(true)
+    }
+    const cleared = await clearAppCaches()
+    expect(cleared === null || typeof cleared === 'number').toBe(true)
   })
 })

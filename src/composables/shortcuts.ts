@@ -40,8 +40,3 @@ export function useHotkeys(hotkeys: Hotkey[]): void {
     }
   })
 }
-
-/** Ctrl+K 聚焦侧边栏搜索框；侧边栏未挂载时不动作 */
-export function focusSearchInput(): void {
-  document.querySelector<HTMLInputElement>('input[data-note-search]')?.focus()
-}

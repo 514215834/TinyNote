@@ -1,6 +1,6 @@
 import { reactive } from 'vue'
 import { defineStore } from 'pinia'
-import type { Note, NoteSnapshot } from '@/types'
+import type { NoteMeta, NoteSnapshot } from '@/types'
 import { createId } from '@/lib/utils/id'
 import { snapshotRepository } from '@/lib/db/repositories/snapshotRepository'
 import { shouldAutoSnapshot, splitByLimit } from '../history'
@@ -56,13 +56,14 @@ export const useHistoryStore = defineStore('history', () => {
 
   /**
    * 回滚（F-402）：把笔记内容替换为快照内容并走正常保存路径（updatedAt 刷新、列表重排）。
-   * 返回恢复后的内容供编辑器同步草稿；无可恢复对象或内容未变化时返回 null。
+   * 当前草稿由调用方传入（F-523：元数据不含正文）；返回恢复后的内容供编辑器同步草稿，
+   * 无可恢复对象或内容未变化时返回 null。
    */
-  async function restoreSnapshot(note: Note, snapshotId: string): Promise<string | null> {
+  async function restoreSnapshot(note: NoteMeta, snapshotId: string, currentContent: string): Promise<string | null> {
     await ensureLoaded(note.id)
     const target = snapshotOf(note.id, snapshotId)
-    if (!target || target.content === note.content) return null
-    await createSnapshotEntry(note.id, note.content) // 回滚前的现状先存档，恢复可再撤销
+    if (!target || target.content === currentContent) return null
+    await createSnapshotEntry(note.id, currentContent) // 回滚前的现状先存档，恢复可再撤销
     await useNotesStore().saveChanges(note.id, { title: note.title, content: target.content })
     return target.content
   }

@@ -10,6 +10,14 @@ describe('displayTitle（F-104）', () => {
     expect(displayTitle({ title: '', content: '\n第一行内容\n正文' })).toBe('第一行内容')
   })
 
+  it('元数据口径（F-523）：标题缺失时回退摘要', () => {
+    expect(displayTitle({ title: ' ', excerpt: '摘要内容' })).toBe('摘要内容')
+  })
+
+  it('摘要为空白占位时回退占位文案', () => {
+    expect(displayTitle({ title: '', excerpt: '空白笔记' })).toBe('无标题笔记')
+  })
+
   it('全空时回退占位文案', () => {
     expect(displayTitle({ title: '  ', content: ' \n ' })).toBe('无标题笔记')
   })

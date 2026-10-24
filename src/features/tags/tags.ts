@@ -1,4 +1,4 @@
-import type { Note } from '@/types'
+import type { NoteMeta } from '@/types'
 
 /** F-202 解析标签输入：按空白 / 中英文逗号 / 顿号切分，去掉空白片段 */
 export function parseTagInput(input: string): string[] {
@@ -36,7 +36,7 @@ export interface TagCount {
 const tagCollator = new Intl.Collator('zh')
 
 /** 侧边栏标签云（F-202）：统计每张标签上的笔记数，频次降序、同频按名称升序 */
-export function collectTags(notes: Note[]): TagCount[] {
+export function collectTags(notes: Pick<NoteMeta, 'tags'>[]): TagCount[] {
   const counts = new Map<string, TagCount>()
   for (const note of notes) {
     for (const tag of note.tags) {

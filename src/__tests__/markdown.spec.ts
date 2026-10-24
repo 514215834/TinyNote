@@ -67,7 +67,8 @@ describe('renderMarkdown（F-103）', () => {
     const html = renderMarkdown('![截图](tinynote-attachment://att-1)', {
       attachmentUrls: { 'att-1': 'blob:http://localhost/x' },
     })
-    expect(html).toContain('<img src="blob:http://localhost/x" alt="截图">')
+    // F-523：img 惰性加载属性由渲染器统一写入
+    expect(html).toContain('<img src="blob:http://localhost/x" alt="截图" loading="lazy" decoding="async">')
   })
 
   it('附件映射缺失时渲染占位提示，不留下可疑 img 属性（F-303）', () => {

@@ -18,7 +18,7 @@ function refresh(): void {
     <span class="text-xs text-gray-700 dark:text-neutral-200">新版本已就绪</span>
     <button
       type="button"
-      class="rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 px-3 py-1 text-xs font-medium text-white shadow-sm shadow-indigo-500/30 transition-all hover:from-indigo-400 hover:to-violet-400"
+      class="rounded-full bg-gradient-to-r from-accent to-accent-strong px-3 py-1 text-xs font-medium text-white shadow-sm shadow-accent/30 transition-all hover:from-indigo-400 hover:to-violet-400"
       @click="refresh"
     >
       刷新更新

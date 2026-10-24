@@ -42,11 +42,14 @@ md.use(footnote)
 
 // F-303：内部附件引用 `tinynote-attachment://<id>`。
 // env.attachmentUrls 提供该笔记附件的 blob URL 映射；命不中时渲染占位提示（不输出可疑属性）。
+// F-523：大笔记多图场景 img 惰性加载，视口外的图片不立即解码。
 const defaultImageRender = md.renderer.rules.image ?? ((tokens, idx, options, _env, self) =>
   self.renderToken(tokens, idx, options))
 md.renderer.rules.image = (tokens, idx, options, env, self) => {
   const token = tokens[idx]
   const src = token.attrGet('src') ?? ''
+  token.attrSet('loading', 'lazy')
+  token.attrSet('decoding', 'async')
   if (src.startsWith(ATTACHMENT_SCHEME)) {
     const id = src.slice(ATTACHMENT_SCHEME.length)
     const url = (env as MarkdownRenderEnv | undefined)?.attachmentUrls?.[id]

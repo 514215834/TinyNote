@@ -3,13 +3,13 @@ import { computed, onMounted } from 'vue'
 import { formatRelativeTime } from '@/lib/utils/time'
 import { SNAPSHOT_KEEP_LIMIT } from './history'
 import { useHistoryStore } from './stores/history'
-import type { Note } from '@/types'
+import type { NoteMeta } from '@/types'
 
 /**
  * 历史版本面板（F-402）：展示当前笔记的快照（最新在前），支持手动快照与回滚。
  * 面板不触碰草稿与确认弹窗——手动快照取当前草稿、回滚前确认由 NoteEditor 处理（emit）。
  */
-const props = defineProps<{ note: Note }>()
+const props = defineProps<{ note: NoteMeta }>()
 const emit = defineEmits<{ snapshot: []; restore: [snapshotId: string] }>()
 
 const historyStore = useHistoryStore()
@@ -57,7 +57,7 @@ onMounted(() => {
           </span>
           <button
             type="button"
-            class="shrink-0 rounded-md px-1.5 py-0.5 text-xs text-gray-400 opacity-0 transition-all hover:bg-indigo-500/10 hover:text-indigo-600 group-hover:opacity-100 dark:text-neutral-500 dark:hover:text-indigo-300"
+            class="shrink-0 rounded-md px-1.5 py-0.5 text-xs text-gray-400 opacity-0 transition-all hover:bg-accent/10 hover:text-accent group-hover:opacity-100 dark:text-neutral-500 dark:hover:text-accent"
             @click="emit('restore', snapshot.id)"
           >
             恢复

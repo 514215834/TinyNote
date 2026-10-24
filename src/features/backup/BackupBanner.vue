@@ -7,14 +7,15 @@ import { BACKUP_REMINDER_DAYS } from './backup'
 
 /**
  * 备份提醒横幅（F-403）：距上次全量备份导出超过 BACKUP_REMINDER_DAYS 天（或从未备份）
- * 且库中有笔记时显示。「暂不提醒」仅关闭本会话横幅，下次启动重新评估。
+ * 且库中有笔记时显示。「暂不提醒」记忆为贪睡（localStorage）：同一提醒周期内不再显示，
+ * 跨启动生效，超过 BACKUP_REMINDER_DAYS 后重新提示。
  */
 const settings = useSettingsStore()
 const notesStore = useNotesStore()
 const { busy: backupBusy, exportBackupZip } = useBackup()
 
 const showBanner = computed(
-  () => settings.backupReminderDue && !settings.backupBannerDismissed && notesStore.notes.length > 0,
+  () => settings.backupReminderDue && notesStore.notes.length > 0,
 )
 
 /** 距上次备份的整天数；从未备份时为 null */
