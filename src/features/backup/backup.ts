@@ -11,6 +11,24 @@ import type { Attachment, BackupAttachment, BackupFile, Folder, Note } from '@/t
 export const BACKUP_FORMAT = 'tinynote-backup'
 export const CURRENT_BACKUP_VERSION = 2
 
+/** 备份提醒周期（天，F-403）：距上次全量备份导出超过该时长时，启动显示提醒横幅 */
+export const BACKUP_REMINDER_DAYS = 7
+
+const DAY_MS = 86_400_000
+
+/**
+ * 是否应显示备份提醒（F-403）：从未备份过视为需要提醒；上次备份早于等于
+ * now - days 时再次提醒（恰好满 N 天即提醒，边界与回收站清理口径一致）。
+ */
+export function backupReminderDue(
+  lastBackupAt: number | null | undefined,
+  now: number,
+  days: number = BACKUP_REMINDER_DAYS,
+): boolean {
+  if (lastBackupAt === null || lastBackupAt === undefined) return true
+  return lastBackupAt <= now - days * DAY_MS
+}
+
 /** 缺失/非法的备份文件：format 不匹配等结构问题 */
 export class BackupFormatError extends Error {
   constructor(message = '不是有效的 TinyNote 备份文件') {

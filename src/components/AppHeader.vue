@@ -7,6 +7,7 @@ import { useBackup } from '@/features/backup/useBackup'
 import { BackupFormatError, BackupVersionError } from '@/features/backup/backup'
 import { useNotesStore } from '@/features/notes/stores/notes'
 import { useFoldersStore } from '@/features/folders/stores/folders'
+import { formatBytes, readStorageSummary, requestPersistentStorage, type StorageSummary } from '@/features/pwa/storage'
 
 const router = useRouter()
 const settings = useSettingsStore()
@@ -22,8 +23,17 @@ const menuOpen = ref(false)
 const menuButton = useTemplateRef<HTMLButtonElement>('menuButton')
 const fileInput = useTemplateRef<HTMLInputElement>('fileInput')
 
+// F-405：菜单打开时读取存储用量与持久化状态（启动时已在 App.vue 申请过持久化）
+const storageSummary = ref<StorageSummary | null>(null)
+
 function toggleMenu(): void {
   menuOpen.value = !menuOpen.value
+  if (menuOpen.value) void readStorageSummary().then((summary) => (storageSummary.value = summary))
+}
+
+async function requestPersist(): Promise<void> {
+  await requestPersistentStorage()
+  storageSummary.value = await readStorageSummary()
 }
 
 useEventListener(document, 'click', (event) => {
@@ -155,6 +165,24 @@ function importErrorMessage(error: unknown): string {
             <span class="block font-medium text-gray-700 dark:text-neutral-200">导出全部笔记</span>
             <span class="block text-[11px] text-gray-400">.md zip（不含附件，通用可读）</span>
           </button>
+          <!-- F-405：存储用量与持久化状态 -->
+          <div
+            v-if="storageSummary"
+            class="mt-1 border-t border-gray-200 px-3 py-2 text-[11px] leading-5 text-gray-400 dark:border-neutral-700"
+          >
+            <span>
+              本地存储 {{ formatBytes(storageSummary.usage) }} / {{ formatBytes(storageSummary.quota) }}
+              · {{ storageSummary.persisted ? '已持久化' : '未持久化' }}
+            </span>
+            <button
+              v-if="!storageSummary.persisted"
+              type="button"
+              class="ml-1 text-indigo-600 hover:underline dark:text-indigo-400"
+              @click="requestPersist"
+            >
+              申请持久化
+            </button>
+          </div>
         </div>
         <input
           ref="fileInput"

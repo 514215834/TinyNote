@@ -11,6 +11,7 @@ export interface LibrarySnapshot {
 /**
  * 备份相关的存储访问：组件与 store 不直接触碰 IndexedDB（架构文档 3.2）。
  * restore 为全量覆盖语义：在单事务内清空三张表再整批写入，失败自动回滚。
+ * 注意：快照（F-402）是本地编辑历史，不进入备份导出口径，但恢复时一并清空。
  */
 export const backupPort = {
   async snapshot(): Promise<LibrarySnapshot> {
@@ -28,10 +29,12 @@ export const backupPort = {
       db.notes,
       db.folders,
       db.attachments,
+      db.snapshots,
       async () => {
         await db.notes.clear()
         await db.folders.clear()
         await db.attachments.clear()
+        await db.snapshots.clear()
         await db.folders.bulkPut(data.folders.map((folder) => ({ ...folder })))
         await db.notes.bulkPut(data.notes.map((note) => ({ ...note, tags: [...note.tags] })))
         await db.attachments.bulkPut(data.attachments.map((attachment) => ({ ...attachment })))

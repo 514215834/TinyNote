@@ -14,6 +14,7 @@ import {
   attachmentEntryPath,
   backupFileName,
   backupNotePath,
+  backupReminderDue,
   buildBackupManifest,
   extensionFor,
   fileNameSlug,
@@ -56,6 +57,7 @@ beforeEach(async () => {
   await db.notes.clear()
   await db.folders.clear()
   await db.attachments.clear()
+  await db.snapshots.clear()
 })
 
 describe('parseBackupManifest（F-305 校验与迁移）', () => {
@@ -240,3 +242,24 @@ function sourceAttachment() {
     createdAt: 1,
   }
 }
+
+describe('backupReminderDue（F-403 备份提醒口径）', () => {
+  const DAY = 86_400_000
+  const NOW = 1_700_000_000_000
+
+  it('从未备份（null/undefined）视为需要提醒', () => {
+    expect(backupReminderDue(null, NOW)).toBe(true)
+    expect(backupReminderDue(undefined, NOW)).toBe(true)
+  })
+
+  it('边界：恰好满 7 天提醒，差 1ms 未满不提醒', () => {
+    expect(backupReminderDue(NOW - 7 * DAY, NOW)).toBe(true)
+    expect(backupReminderDue(NOW - 7 * DAY + 1, NOW)).toBe(false)
+    expect(backupReminderDue(NOW - 8 * DAY, NOW)).toBe(true)
+  })
+
+  it('提醒周期可注入（days 参数）', () => {
+    expect(backupReminderDue(NOW - 3 * DAY, NOW, 2)).toBe(true)
+    expect(backupReminderDue(NOW - 3 * DAY, NOW, 4)).toBe(false)
+  })
+})

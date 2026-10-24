@@ -1,6 +1,6 @@
 import { ref, reactive } from 'vue'
 import { defineStore } from 'pinia'
-import { buildAttachment } from '../attachments'
+import { buildAttachment, orphanAttachmentIds } from '../attachments'
 import { attachmentRepository } from '@/lib/db/repositories/attachmentRepository'
 
 /**
@@ -34,6 +34,24 @@ export const useAttachmentsStore = defineStore('attachments', () => {
     return attachment.id
   }
 
+  /**
+   * 孤儿附件清理（F-406）：正文与历史快照都不再引用的附件物理删除。
+   * keepContents 未包含快照内容（历史未加载）时不动手，宁可暂留也不误删；
+   * 仅在附件确为该笔记载入的状态下执行。
+   */
+  async function pruneOrphans(noteId: string, keepContents: string[]): Promise<void> {
+    if (loadedForNoteId.value !== noteId) return
+    const existing = await attachmentRepository.listByNote(noteId)
+    const orphanIds = orphanAttachmentIds(existing, keepContents)
+    if (orphanIds.length === 0) return
+    await attachmentRepository.deleteByIds(orphanIds)
+    for (const id of orphanIds) {
+      URL.revokeObjectURL(urls[id])
+      delete urls[id]
+      delete list[id]
+    }
+  }
+
   /** 释放全部 blob URL（切换笔记卸载编辑器时调用） */
   function release(): void {
     for (const url of Object.values(urls)) URL.revokeObjectURL(url)
@@ -42,5 +60,5 @@ export const useAttachmentsStore = defineStore('attachments', () => {
     loadedForNoteId.value = null
   }
 
-  return { urls, list, loadedForNoteId, loadForNote, attach, release }
+  return { urls, list, loadedForNoteId, loadForNote, attach, pruneOrphans, release }
 })

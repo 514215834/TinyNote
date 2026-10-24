@@ -13,6 +13,8 @@ import { formatDateTime, formatRelativeTime } from '@/lib/utils/time'
 import { useNotesStore } from './stores/notes'
 import { useSettingsStore } from '@/features/settings/stores/settings'
 import { useAttachmentsStore } from '@/features/editor/stores/attachments'
+import { useHistoryStore } from '@/features/history/stores/history'
+import HistoryPanel from '@/features/history/HistoryPanel.vue'
 import { makeImageMarkdown, pickImageFiles } from '@/features/editor/attachments'
 import NoteCodeEditor from '@/features/editor/NoteCodeEditor.vue'
 import { useBackup } from '@/features/backup/useBackup'
@@ -24,6 +26,7 @@ const props = defineProps<{ note: Note }>()
 const notesStore = useNotesStore()
 const settings = useSettingsStore()
 const attachmentsStore = useAttachmentsStore()
+const historyStore = useHistoryStore()
 const backup = useBackup()
 
 const modes: { value: EditorMode; label: string }[] = [
@@ -40,9 +43,11 @@ const previewEl = useTemplateRef<HTMLDivElement>('previewEl')
 const editorView = shallowRef<EditorView | null>(null)
 
 // 草稿保存在本地响应式引用；持久化由 useAutoSave 调度（防抖 + 失焦 + 关页兜底），
-// persist 调用时才读取 title/content，因此切换笔记前的待写内容也能被正确保存
+// persist 调用时才读取 title/content，因此切换笔记前的待写内容也能被正确保存。
+// 保存成功后追加 F-402 自动快照判定（大变更才落快照）。
 const { schedule, flush, status } = useAutoSave(async () => {
   await notesStore.saveChanges(props.note.id, { title: title.value, content: content.value })
+  await historyStore.maybeAutoSnapshot(props.note.id, content.value)
 })
 
 watch([title, content], () => schedule())
@@ -51,10 +56,20 @@ onMounted(() => {
   // 新建的空笔记直接聚焦标题
   if (props.note.title === '' && props.note.content === '') titleInput.value?.focus()
   void attachmentsStore.loadForNote(props.note.id)
+  void historyStore.ensureLoaded(props.note.id)
 })
 
 onBeforeUnmount(() => {
-  attachmentsStore.release()
+  // 卸载兜底：先尽力落盘草稿，再做 F-406 孤儿附件清理（正文与历史快照都不再引用才删），
+  // 最后释放 blob URL。历史列表未加载完成时 pruneOrphans 会自动跳过，宁可暂留不误删。
+  void (async () => {
+    await flush()
+    const snapshotContents = historyStore.contents(props.note.id)
+    if (snapshotContents !== undefined) {
+      await attachmentsStore.pruneOrphans(props.note.id, [content.value, ...snapshotContents])
+    }
+    attachmentsStore.release()
+  })()
 })
 
 useEventListener(window, 'beforeunload', () => {
@@ -184,6 +199,25 @@ function exportCurrentNote(): void {
   void flush()
 }
 
+// F-402：历史版本面板。手动快照取当前草稿；回滚前先确认，恢复成功后同步本地草稿
+const historyOpen = ref(false)
+
+function onManualSnapshot(): void {
+  void historyStore.createManualSnapshot(props.note.id, content.value)
+}
+
+async function onRestoreSnapshot(snapshotId: string): Promise<void> {
+  const snapshot = historyStore.snapshotOf(props.note.id, snapshotId)
+  if (!snapshot) return
+  const confirmed = window.confirm(
+    `恢复到 ${formatDateTime(snapshot.createdAt)} 的版本？\n当前内容会先自动存为一条快照，可随时再恢复回来。`,
+  )
+  if (!confirmed) return
+  await flush()
+  const restored = await historyStore.restoreSnapshot(props.note, snapshotId)
+  if (restored !== null) content.value = restored
+}
+
 // F-202：标签在编辑器内增删，store.setTags 即时落库（不参与防抖草稿）
 const tagDraft = ref('')
 function commitTagInput(): void {
@@ -264,6 +298,31 @@ const stats = computed(() => ({ words: countWords(content.value), chars: countCh
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
           <polyline points="7 10 12 15 17 10" />
           <line x1="12" y1="15" x2="12" y2="3" />
+        </svg>
+      </button>
+      <!-- F-402：历史版本面板开关 -->
+      <button
+        type="button"
+        class="shrink-0 rounded-lg p-2 text-gray-400 hover:text-gray-700 dark:text-neutral-500 dark:hover:text-neutral-200"
+        :class="{ 'text-gray-700 dark:text-neutral-200': historyOpen }"
+        :title="historyOpen ? '关闭历史版本' : '历史版本'"
+        :aria-label="historyOpen ? '关闭历史版本' : '历史版本'"
+        @click="historyOpen = !historyOpen"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M3 3v5h5" />
+          <path d="M3.05 13a9 9 0 1 0 .5-5.5L3 8" />
+          <path d="M12 7v5l4 2" />
         </svg>
       </button>
       <div
@@ -373,6 +432,13 @@ const stats = computed(() => ({ words: countWords(content.value), chars: countCh
           </ul>
         </nav>
       </div>
+      <!-- F-402：历史版本面板（手动快照/回滚；与编辑模式无关，随开关显示） -->
+      <HistoryPanel
+        v-if="historyOpen"
+        :note="props.note"
+        @snapshot="onManualSnapshot"
+        @restore="onRestoreSnapshot"
+      />
     </div>
     <!-- 统计信息（F-207）+ 行号开关（F-301） -->
     <footer

@@ -6,6 +6,7 @@ import { folderRepository } from '@/lib/db/repositories/folderRepository'
 import { noteRepository } from '@/lib/db/repositories/noteRepository'
 import { downloadBlob } from '@/lib/utils/download'
 import { displayTitle } from '@/features/notes/notes'
+import { useSettingsStore } from '@/features/settings/stores/settings'
 import {
   BackupFormatError,
   backupFileName,
@@ -27,7 +28,8 @@ import {
 export function useBackup() {
   const busy = ref(false)
 
-  /** 全量备份（F-305）：manifest.json + notes/*.md + assets/*，zip 用于精确还原 */
+  /** 全量备份（F-305）：manifest.json + notes/*.md + assets/*，zip 用于精确还原。
+   *  导出成功后记录 lastBackupAt（F-403 备份提醒的计时起点） */
   async function exportBackupZip(): Promise<void> {
     await withBusy(async () => {
       const snapshot = await backupPort.snapshot()
@@ -47,6 +49,7 @@ export function useBackup() {
         new Blob([zipSync(entries)], { type: 'application/zip' }),
         backupFileName(manifest.exportedAt),
       )
+      await useSettingsStore().markBackedUp()
     })
   }
 

@@ -1,12 +1,16 @@
 # TinyNote
 
-部署在 GitHub Pages 上的**本地优先（local-first）Markdown 笔记应用**：纯前端（Vue 3 + TypeScript）、无后端，笔记数据全部保存在你自己的浏览器中，随时可导出带走。
+部署在 GitHub Pages 上的**本地优先（local-first）Markdown 笔记应用**：纯前端（Vue 3 + TypeScript）、无后端，笔记数据全部保存在你自己的浏览器中，随时可导出带走。支持 PWA 离线使用与安装到桌面。
 
-## ✨ 功能（v0.3）
+## ✨ 功能（v0.4）
 
 - Markdown 笔记新建 / 编辑 / 删除（软删除）
+- **PWA**：离线打开（Service Worker 预缓存 + 导航回退）、安装到桌面、检测到新版本时提示「刷新更新」
+- **历史版本快照**：内容变化超 20% 自动快照，支持手动快照与一键回滚（回滚前自动存档当前内容），每篇保留 20 条
+- **备份提醒**：超过 7 天未导出全量备份时启动横幅提醒，一键备份
+- **存储持久化**：启动申请 `navigator.storage.persist()`，数据菜单展示用量与持久化状态
 - **CodeMirror 6 编辑器**：Markdown 语法高亮、可选行号（统计栏切换）、分栏下编辑/预览滚动联动
-- **图片粘贴/拖拽**：图片自动存入本地附件库，正文插入内部引用，预览直接显示
+- **图片粘贴/拖拽**：图片自动存入本地附件库，正文插入内部引用，预览直接显示；不再被引用的附件自动清理
 - **大纲（TOC）**：预览态展示标题大纲，点击平滑跳转
 - **导出**：单篇 `.md`、全部笔记 `.md zip`；**全量备份** `tinynote-backup.zip`（含附件，可还原导）
 - **备份导入**：支持 v0.3 起 zip 与 v0.1–v0.2 的 JSON 备份，版本校验 + 自动迁移，覆盖恢复前确认
@@ -32,7 +36,7 @@
 
 ## 🛠 技术栈
 
-Vue 3（`<script setup>` + TS）· Pinia · vue-router（Hash）· Dexie/IndexedDB · CodeMirror 6（vue-codemirror）· markdown-it + highlight.js + 脚注/任务列表插件 · fflate（zip 备份）· Tailwind CSS 4 · Vite · Vitest
+Vue 3（`<script setup>` + TS）· Pinia · vue-router（Hash）· Dexie/IndexedDB · CodeMirror 6（vue-codemirror）· markdown-it + highlight.js + 脚注/任务列表插件 · fflate（zip 备份）· vite-plugin-pwa（Workbox）· Tailwind CSS 4 · Vite · Vitest
 
 ## 快速开始
 
@@ -57,4 +61,6 @@ push 到 `main` 分支后，[deploy.yml](./.github/workflows/deploy.yml) 会自�
 
 ## 迭代路线
 
-当前进度：**v0.3 已实现**。后续：v0.4 可靠性（PWA/历史版本/备份提醒）→ v0.5 同步 → v1.0 打磨。详见 [ROADMAP](./docs/ROADMAP.md)。
+当前进度：**v0.4 已实现**。后续：v0.5 同步（GitHub Gist）→ v1.0 打磨。详见 [ROADMAP](./docs/ROADMAP.md)。
+
+> 说明：TinyNote 保持纯 Web/PWA 形态（可安装到桌面的是浏览器 PWA 能力），不做 Electron/Tauri 桌面应用打包。

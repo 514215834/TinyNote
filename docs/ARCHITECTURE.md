@@ -32,7 +32,7 @@ TinyNote 是一个**部署在 GitHub Pages 上的本地优先（local-first）Ma
 | Markdown 渲染 | **markdown-it（默认 `html: false`）+ highlight.js** | 默认转义原始 HTML（安全基线）；插件生态成熟，任务列表、脚注等 v0.3 扩展直接加插件 | marked（默认不过滤 HTML，安全配置繁琐） |
 | 代码编辑器 | 阶段一：受控 `textarea`（v0.1–v0.2）；阶段二升级 **vue-codemirror（CodeMirror 6）**，v0.3 已落地 | MVP 快速交付；CodeMirror 6 模块化、移动端友好、语法高亮可扩展，是迭代终态 | Monaco（桌面级体积，不适合移动场景） |
 | 样式 | **Tailwind CSS 4 + @tailwindcss/typography** | 迭代 UI 速度最快；typography 插件直接给 Markdown 预览提供排版 | CSS Modules |
-| PWA | **vite-plugin-pwa**（Workbox，v0.4 引入） | 一套配置获得离线缓存 + 桌面安装 | 手写 Service Worker |
+| PWA | **vite-plugin-pwa**（Workbox，v0.4 已落地） | 一套配置获得离线缓存 + 桌面安装（纯 Web/PWA 形态，不做 Electron/Tauri 打包） | 手写 Service Worker |
 | 搜索 | 阶段一：内存全量扫描；阶段二升级 **MiniSearch** | 数千篇以内直接扫描足够快；MiniSearch 支持前缀/模糊匹配，中文可配 n-gram 分词 | FlexSearch |
 | 单元测试 | **Vitest + @vue/test-utils（happy-dom）+ fake-indexeddb** | 与 Vite 共享配置；fake-indexeddb 让存储层测试跑真实 Dexie 代码路径 | Jest |
 | E2E 测试 | **Playwright** | 跨浏览器、自动等待、CI 友好 | Cypress |
@@ -160,6 +160,15 @@ db.version(2).stores({
   settings: 'key',
   attachments: 'id, noteId',
 }).upgrade(async (tx) => { /* 无需改造旧数据，留空即可 */ });
+
+// v3（v0.4：F-402 历史版本快照表）
+db.version(3).stores({
+  notes: 'id, folderId, updatedAt, *tags, trashedAt',
+  folders: 'id, name, order',
+  settings: 'key',
+  attachments: 'id, noteId',
+  snapshots: 'id, noteId, createdAt',
+}).upgrade(async (tx) => { /* 无需改造旧数据，留空即可 */ });
 ```
 
 要点：
@@ -200,6 +209,7 @@ db.version(2).stores({
 ```text
 tinynote/
 ├── docs/                       # 本文档、ROADMAP、CHANGELOG
+├── scripts/                    # 辅助脚本（generate-icons.mjs：PWA 图标零依赖生成）
 ├── public/                     # 图标等静态资源
 ├── src/
 │   ├── main.ts                 # 应用入口：createApp + Pinia + Router
@@ -217,10 +227,12 @@ tinynote/
 │   │   ├── trash/               #   （v0.2）trash.ts（30 天清理口径）+ TrashView
 │   │   ├── search/             #   search.ts（纯过滤函数）+ highlight.ts + stores/search.ts
 │   │   ├── editor/             #   （v0.3 已落地）NoteCodeEditor.vue（CodeMirror 封装）+ setup.ts（扩展组）
-│   │   │   ├── attachments.ts             # 粘贴/拖入纯函数（准入/引用/插入）
-│   │   │   └── stores/attachments.ts      # 附件 blob URL 生命周期
-│   │   ├── backup/             #   （v0.3 已落地）backup.ts（manifest/迁移/命名纯函数）+ useBackup.ts（fflate 编排）
-│   │   └── settings/           #   stores/settings.ts（主题 + 编辑器行号偏好）
+│   │   │   ├── attachments.ts             # 粘贴/拖入纯函数（准入/引用/插入/孤儿判定）
+│   │   │   └── stores/attachments.ts      # 附件 blob URL 生命周期 + 孤儿清理（F-406）
+│   │   ├── history/            #   （v0.4 已落地）history.ts（快照阈值/上限纯函数）+ HistoryPanel.vue + stores/history.ts
+│   │   ├── pwa/                #   （v0.4 已落地）storage.ts（持久化/用量）+ usePwaUpdate.ts + UpdateBanner.vue
+│   │   ├── backup/             #   （v0.3 已落地）backup.ts（manifest/迁移/命名纯函数）+ useBackup.ts（fflate 编排）+ BackupBanner.vue
+│   │   └── settings/           #   stores/settings.ts（主题 + 编辑器行号偏好 + 备份提醒状态）
 │   ├── components/             # 跨功能通用 UI（AppHeader 等）
 │   ├── composables/            # 跨功能组合式函数
 │   ├── lib/

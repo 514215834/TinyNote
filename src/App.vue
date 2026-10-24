@@ -5,22 +5,29 @@ import AppHeader from '@/components/AppHeader.vue'
 import NoteListSidebar from '@/features/notes/NoteListSidebar.vue'
 import { useNotesStore } from '@/features/notes/stores/notes'
 import { useFoldersStore } from '@/features/folders/stores/folders'
+import { useSettingsStore } from '@/features/settings/stores/settings'
+import BackupBanner from '@/features/backup/BackupBanner.vue'
+import UpdateBanner from '@/features/pwa/UpdateBanner.vue'
+import { requestPersistentStorage } from '@/features/pwa/storage'
 import { displayTitle } from '@/features/notes/notes'
 import { useHotkeys, focusSearchInput } from '@/composables/shortcuts'
 
 const router = useRouter()
 const notesStore = useNotesStore()
 const foldersStore = useFoldersStore()
+const settings = useSettingsStore()
 
 onMounted(() => {
   void bootstrap()
 })
 
-/** 启动流程：先惰性清理过期回收站（F-204），再加载列表与文件夹 */
+/** 启动流程：先惰性清理过期回收站（F-204），再加载列表与文件夹；F-405 申请持久化存储 */
 async function bootstrap(): Promise<void> {
+  void requestPersistentStorage()
   await notesStore.autopurge(Date.now())
   await notesStore.init()
   await foldersStore.init()
+  await settings.initBackupReminder()
 }
 
 /** F-206：Ctrl+N 新建（在回收站视图下会先回到笔记视图） */
@@ -48,11 +55,14 @@ useHotkeys([
 <template>
   <div class="flex h-dvh flex-col bg-gray-50 text-gray-900 dark:bg-neutral-900 dark:text-neutral-100">
     <AppHeader />
+    <BackupBanner />
     <div class="flex min-h-0 flex-1">
       <NoteListSidebar />
       <main class="min-w-0 flex-1">
         <RouterView />
       </main>
     </div>
+    <!-- F-404：检测到新版本 Service Worker 时提示刷新 -->
+    <UpdateBanner />
   </div>
 </template>

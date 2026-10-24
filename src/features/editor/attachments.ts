@@ -1,4 +1,4 @@
-import { attachmentRef } from '@/lib/markdown/attachmentRef'
+import { attachmentRef, extractAttachmentIds } from '@/lib/markdown/attachmentRef'
 import { createId } from '@/lib/utils/id'
 import type { Attachment } from '@/types'
 
@@ -58,4 +58,16 @@ export function filesToInsertions(files: File[], noteId: string): { attachment: 
     const attachment = buildAttachment(file, noteId)
     return { attachment, markdown: makeImageMarkdown(attachment.id, attachment.name) }
   })
+}
+
+/**
+ * 孤儿附件判定（F-406）：正文与全部历史快照内容都不再引用的附件 id。
+ * 快照回滚依赖附件仍存在，因此「被快照引用」与「被正文引用」同等保留。
+ */
+export function orphanAttachmentIds(
+  existing: Pick<Attachment, 'id'>[],
+  keepContents: string[],
+): string[] {
+  const referenced = new Set(keepContents.flatMap((content) => extractAttachmentIds(content)))
+  return existing.filter((attachment) => !referenced.has(attachment.id)).map((attachment) => attachment.id)
 }

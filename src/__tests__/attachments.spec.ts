@@ -7,6 +7,7 @@ import {
   insertIntoText,
   isImageFile,
   makeImageMarkdown,
+  orphanAttachmentIds,
   pickImageFiles,
 } from '@/features/editor/attachments'
 import { extractAttachmentIds } from '@/lib/markdown/attachmentRef'
@@ -91,5 +92,23 @@ describe('extractAttachmentIds（F-303/F-305）', () => {
     expect(extractAttachmentIds('普通正文')).toEqual([])
     // 该子串会提取出 'fake'，但 attachmentUrls 无此键 → 预览渲染「图片缺失」占位
     expect(extractAttachmentIds('https://example.com/tinynote-attachment://fake')).toEqual(['fake'])
+  })
+})
+
+describe('orphanAttachmentIds（F-406 孤儿附件判定）', () => {
+  const existing = [{ id: 'a1' }, { id: 'a2' }, { id: 'a3' }]
+
+  it('正文与全部历史快照都未引用的附件才算孤儿', () => {
+    const keepContents = [
+      '正文引用 a1 ![x](tinynote-attachment://a1)',
+      '快照里引用 a2 ![y](tinynote-attachment://a2)', // 快照回滚依赖附件存在，同等保留
+    ]
+    expect(orphanAttachmentIds(existing, keepContents)).toEqual(['a3'])
+  })
+
+  it('全部被引用时不产生待删项；空内容则全部视为孤儿', () => {
+    const allReferenced = ['![x](tinynote-attachment://a1) ![y](tinynote-attachment://a2) ![z](tinynote-attachment://a3)']
+    expect(orphanAttachmentIds(existing, allReferenced)).toEqual([])
+    expect(orphanAttachmentIds(existing, ['正文已删掉所有图片'])).toEqual(['a1', 'a2', 'a3'])
   })
 })
