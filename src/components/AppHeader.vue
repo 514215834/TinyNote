@@ -97,17 +97,20 @@ function importErrorMessage(error: unknown): string {
 
 <template>
   <header
-    class="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 dark:border-neutral-800 dark:bg-neutral-900"
+    class="relative z-20 flex h-14 shrink-0 items-center justify-between border-b border-white/50 bg-white/45 px-5 backdrop-blur-2xl backdrop-saturate-150 dark:border-white/8 dark:bg-neutral-900/45"
   >
-    <span class="text-sm font-bold tracking-wide">TinyNote</span>
+    <span class="flex items-center gap-2 text-sm font-bold tracking-wide">
+      <span class="flex h-6 w-6 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 text-[13px] text-white shadow-sm">T</span>
+      TinyNote
+    </span>
     <div class="flex items-center gap-1">
       <!-- 数据菜单（F-304/F-305） -->
       <div class="relative">
         <button
           ref="menuButton"
           type="button"
-          class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
-          :class="{ 'bg-gray-100 text-gray-800 dark:bg-neutral-800 dark:text-neutral-200': menuOpen }"
+          class="rounded-lg p-2 text-gray-500 transition-colors hover:bg-white/70 hover:text-gray-800 dark:text-neutral-400 dark:hover:bg-white/10 dark:hover:text-neutral-100"
+          :class="{ 'bg-white/70 text-gray-900 dark:bg-white/10 dark:text-neutral-100': menuOpen }"
           title="数据：备份导出 / 导入"
           aria-label="数据菜单"
           aria-haspopup="menu"
@@ -131,13 +134,13 @@ function importErrorMessage(error: unknown): string {
         </button>
         <div
           v-if="menuOpen"
-          class="absolute right-0 top-10 z-20 w-52 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-neutral-700 dark:bg-neutral-800"
+          class="glass-strong absolute right-0 top-11 z-20 w-56 rounded-xl py-1"
           role="menu"
           aria-label="数据操作"
         >
           <button
             type="button"
-            class="w-full px-3 py-2 text-left text-xs hover:bg-gray-50 dark:hover:bg-neutral-700/60"
+            class="w-full px-3 py-2 text-left text-xs transition-colors hover:bg-gray-900/5 dark:hover:bg-white/8"
             role="menuitem"
             :disabled="busy"
             @click="exportBackup"
@@ -147,7 +150,7 @@ function importErrorMessage(error: unknown): string {
           </button>
           <button
             type="button"
-            class="w-full px-3 py-2 text-left text-xs hover:bg-gray-50 dark:hover:bg-neutral-700/60"
+            class="w-full px-3 py-2 text-left text-xs transition-colors hover:bg-gray-900/5 dark:hover:bg-white/8"
             role="menuitem"
             :disabled="busy"
             @click="pickImportFile"
@@ -157,7 +160,7 @@ function importErrorMessage(error: unknown): string {
           </button>
           <button
             type="button"
-            class="w-full px-3 py-2 text-left text-xs hover:bg-gray-50 dark:hover:bg-neutral-700/60"
+            class="w-full px-3 py-2 text-left text-xs transition-colors hover:bg-gray-900/5 dark:hover:bg-white/8"
             role="menuitem"
             :disabled="busy"
             @click="exportNotes"
@@ -168,7 +171,7 @@ function importErrorMessage(error: unknown): string {
           <!-- F-405：存储用量与持久化状态 -->
           <div
             v-if="storageSummary"
-            class="mt-1 border-t border-gray-200 px-3 py-2 text-[11px] leading-5 text-gray-400 dark:border-neutral-700"
+            class="mt-1 border-t border-gray-900/8 px-3 py-2 text-[11px] leading-5 text-gray-500 dark:border-white/8 dark:text-neutral-400"
           >
             <span>
               本地存储 {{ formatBytes(storageSummary.usage) }} / {{ formatBytes(storageSummary.quota) }}
@@ -196,7 +199,7 @@ function importErrorMessage(error: unknown): string {
 
       <button
         type="button"
-        class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
+        class="rounded-lg p-2 text-gray-500 transition-colors hover:bg-white/70 hover:text-gray-800 dark:text-neutral-400 dark:hover:bg-white/10 dark:hover:text-neutral-100"
         :title="settings.isDark ? '切换到浅色模式' : '切换到深色模式'"
         :aria-label="settings.isDark ? '切换到浅色模式' : '切换到深色模式'"
         @click="settings.toggleTheme()"

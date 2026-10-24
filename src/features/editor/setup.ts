@@ -41,5 +41,12 @@ export function createMarkdownExtensions(options: { lineNumbers: boolean; dark: 
     // 浅色下的语法配色；暗色由 oneDark 的配色接管（其本身即一套 highlighter）
     syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
     ...options.dark ? [oneDark] : [],
+    // 玻璃化界面：编辑器与行号槽底色透明，透出容器的磨砂层（置于主题链最后以覆盖 oneDark 的实底）
+    EditorView.theme({
+      '&': { backgroundColor: 'transparent' },
+      '.cm-gutters': { backgroundColor: 'transparent', borderRightColor: 'transparent' },
+      '.cm-activeLine': { backgroundColor: 'rgb(0 0 0 / 0.04)' },
+      '.cm-activeLineGutter': { backgroundColor: 'rgb(0 0 0 / 0.05)' },
+    }),
   ]
 }

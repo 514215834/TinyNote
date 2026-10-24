@@ -242,7 +242,7 @@ const stats = computed(() => ({ words: countWords(content.value), chars: countCh
 <template>
   <section class="flex h-full min-w-0 flex-1 flex-col">
     <div
-      class="flex shrink-0 items-center gap-4 border-b border-gray-200 px-6 py-3 dark:border-neutral-800"
+      class="flex shrink-0 items-center gap-4 border-b border-gray-900/8 px-6 py-3 dark:border-white/8"
     >
       <input
         ref="titleInput"
@@ -254,7 +254,7 @@ const stats = computed(() => ({ words: countWords(content.value), chars: countCh
       />
       <button
         type="button"
-        class="shrink-0 rounded-lg p-2 text-gray-400 hover:text-amber-500 dark:text-neutral-500"
+        class="shrink-0 rounded-lg p-2 text-gray-400 transition-colors hover:bg-white/60 hover:text-amber-500 dark:text-neutral-500 dark:hover:bg-white/8"
         :class="{ 'text-amber-500': props.note.pinned }"
         :title="props.note.pinned ? '取消置顶' : '置顶'"
         :aria-label="props.note.pinned ? '取消置顶' : '置顶'"
@@ -279,7 +279,7 @@ const stats = computed(() => ({ words: countWords(content.value), chars: countCh
       </button>
       <button
         type="button"
-        class="shrink-0 rounded-lg p-2 text-gray-400 hover:text-gray-700 dark:text-neutral-500 dark:hover:text-neutral-200"
+        class="shrink-0 rounded-lg p-2 text-gray-400 transition-colors hover:bg-white/60 hover:text-gray-700 dark:text-neutral-500 dark:hover:bg-white/8 dark:hover:text-neutral-200"
         title="导出单篇 Markdown"
         aria-label="导出单篇 Markdown"
         @click="exportCurrentNote"
@@ -303,8 +303,8 @@ const stats = computed(() => ({ words: countWords(content.value), chars: countCh
       <!-- F-402：历史版本面板开关 -->
       <button
         type="button"
-        class="shrink-0 rounded-lg p-2 text-gray-400 hover:text-gray-700 dark:text-neutral-500 dark:hover:text-neutral-200"
-        :class="{ 'text-gray-700 dark:text-neutral-200': historyOpen }"
+        class="shrink-0 rounded-lg p-2 text-gray-400 transition-colors hover:bg-white/60 hover:text-gray-700 dark:text-neutral-500 dark:hover:bg-white/8 dark:hover:text-neutral-200"
+        :class="{ 'bg-white/70 text-gray-900 dark:bg-white/10 dark:text-neutral-100': historyOpen }"
         :title="historyOpen ? '关闭历史版本' : '历史版本'"
         :aria-label="historyOpen ? '关闭历史版本' : '历史版本'"
         @click="historyOpen = !historyOpen"
@@ -326,7 +326,7 @@ const stats = computed(() => ({ words: countWords(content.value), chars: countCh
         </svg>
       </button>
       <div
-        class="flex shrink-0 rounded-lg border border-gray-200 p-0.5 text-xs dark:border-neutral-700"
+        class="flex shrink-0 items-center rounded-full border border-gray-900/10 bg-white/50 p-0.5 text-xs shadow-sm dark:border-white/10 dark:bg-white/5"
       >
         <button
           v-for="m in modes"
@@ -334,10 +334,10 @@ const stats = computed(() => ({ words: countWords(content.value), chars: countCh
           type="button"
           :class="
             mode === m.value
-              ? 'bg-gray-200 dark:bg-neutral-700'
-              : 'hover:text-gray-600 dark:hover:text-neutral-300'
+              ? 'bg-white text-gray-900 shadow-sm dark:bg-white/15 dark:text-neutral-100'
+              : 'text-gray-500 hover:text-gray-800 dark:text-neutral-400 dark:hover:text-neutral-200'
           "
-          class="rounded-md px-2.5 py-1"
+          class="rounded-full px-3 py-1 transition-colors"
           @click="mode = m.value"
         >
           {{ m.label }}
@@ -349,12 +349,12 @@ const stats = computed(() => ({ words: countWords(content.value), chars: countCh
     </div>
     <!-- 标签行（F-202）：回车添加，× 移除 -->
     <div
-      class="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-gray-200 px-6 py-2 dark:border-neutral-800"
+      class="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-gray-900/8 px-6 py-2 dark:border-white/8"
     >
       <span
         v-for="tag in props.note.tags"
         :key="tag"
-        class="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-neutral-800 dark:text-neutral-300"
+        class="flex items-center gap-1 rounded-full bg-white/70 px-2.5 py-0.5 text-xs text-gray-600 shadow-sm dark:bg-white/10 dark:text-neutral-300"
       >
         {{ tag }}
         <button
@@ -381,16 +381,16 @@ const stats = computed(() => ({ words: countWords(content.value), chars: countCh
       @dragover.prevent
       @drop="onDrop"
     >
-      <!-- F-301：CodeMirror 6 编辑器（光标处可粘贴/拖入图片） -->
+      <!-- F-301：CodeMirror 6 编辑器（光标处可粘贴/拖入图片）；磨砂卡内嵌半透明内胆 -->
       <div
         v-show="mode !== 'preview'"
-        class="h-full min-w-0 flex-1 overflow-hidden px-3 py-2"
+        class="h-full min-w-0 flex-1 overflow-hidden p-2"
       >
         <NoteCodeEditor
           v-model="content"
           :line-numbers="settings.editorLineNumbers"
           :dark="settings.isDark"
-          class="h-full"
+          class="h-full overflow-hidden rounded-xl border border-gray-900/8 bg-white/40 dark:border-white/8 dark:bg-white/[0.03]"
           @ready="onEditorReady"
           @blur="flush()"
         />
@@ -401,7 +401,7 @@ const stats = computed(() => ({ words: countWords(content.value), chars: countCh
       >
         <div
           ref="previewEl"
-          :class="mode === 'split' ? 'border-l border-gray-200 dark:border-neutral-800' : ''"
+          :class="mode === 'split' ? 'border-l border-gray-900/8 dark:border-white/8' : ''"
           class="h-full min-w-0 flex-1 overflow-y-auto p-6"
         >
           <!-- v-html 全项目唯一插口：仅渲染 markdown-it（html:false）自身输出，见 ADR-006 -->
@@ -414,7 +414,7 @@ const stats = computed(() => ({ words: countWords(content.value), chars: countCh
         <nav
           v-if="mode === 'preview' && headings.length > 0"
           aria-label="大纲"
-          class="w-56 shrink-0 overflow-y-auto border-l border-gray-200 py-4 dark:border-neutral-800"
+          class="w-56 shrink-0 overflow-y-auto border-l border-gray-900/8 bg-white/25 py-4 dark:border-white/8 dark:bg-white/[0.03]"
         >
           <p class="px-4 pb-2 text-[11px] font-medium text-gray-400">大纲</p>
           <ul class="space-y-0.5">
@@ -442,14 +442,14 @@ const stats = computed(() => ({ words: countWords(content.value), chars: countCh
     </div>
     <!-- 统计信息（F-207）+ 行号开关（F-301） -->
     <footer
-      class="flex shrink-0 items-center justify-between border-t border-gray-200 px-6 py-1.5 text-xs text-gray-400 dark:border-neutral-800 dark:text-neutral-500"
+      class="flex shrink-0 items-center justify-between border-t border-gray-900/8 px-6 py-1.5 text-xs text-gray-500 dark:border-white/8 dark:text-neutral-400"
     >
       <span class="flex items-center gap-4">
         <span>共 {{ stats.words }} 字 · {{ stats.chars }} 字符</span>
         <button
           type="button"
-          class="hover:text-gray-600 dark:hover:text-neutral-300"
-          :class="{ 'text-gray-700 dark:text-neutral-200': settings.editorLineNumbers }"
+          class="transition-colors hover:text-gray-800 dark:hover:text-neutral-200"
+          :class="{ 'text-gray-800 dark:text-neutral-100': settings.editorLineNumbers }"
           :title="settings.editorLineNumbers ? '隐藏行号' : '显示行号'"
           :aria-label="settings.editorLineNumbers ? '隐藏行号' : '显示行号'"
           @click="settings.toggleEditorLineNumbers()"

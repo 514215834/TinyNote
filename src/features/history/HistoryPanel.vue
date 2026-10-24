@@ -23,7 +23,7 @@ onMounted(() => {
 <template>
   <nav
     aria-label="历史版本"
-    class="flex w-60 shrink-0 flex-col overflow-hidden border-l border-gray-200 dark:border-neutral-800"
+    class="flex w-60 shrink-0 flex-col overflow-hidden border-l border-gray-900/8 bg-white/25 dark:border-white/8 dark:bg-white/[0.03]"
   >
     <div class="flex items-center justify-between px-4 py-3">
       <p class="text-[11px] font-medium text-gray-400">
@@ -32,7 +32,7 @@ onMounted(() => {
       </p>
       <button
         type="button"
-        class="rounded-md px-1.5 py-0.5 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+        class="rounded-md px-1.5 py-0.5 text-xs text-gray-500 transition-colors hover:bg-white/80 hover:text-gray-800 dark:text-neutral-400 dark:hover:bg-white/10 dark:hover:text-neutral-100"
         @click="emit('snapshot')"
       >
         存为快照
@@ -47,7 +47,7 @@ onMounted(() => {
         <li
           v-for="snapshot in snapshots"
           :key="snapshot.id"
-          class="group flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-neutral-800"
+          class="group flex items-center justify-between gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-white/70 dark:hover:bg-white/8"
         >
           <span class="min-w-0">
             <span class="block text-xs text-gray-700 dark:text-neutral-200">
@@ -57,7 +57,7 @@ onMounted(() => {
           </span>
           <button
             type="button"
-            class="shrink-0 rounded-md px-1.5 py-0.5 text-xs text-gray-400 opacity-0 hover:bg-gray-200 hover:text-gray-800 group-hover:opacity-100 dark:text-neutral-500 dark:hover:bg-neutral-700 dark:hover:text-neutral-100"
+            class="shrink-0 rounded-md px-1.5 py-0.5 text-xs text-gray-400 opacity-0 transition-all hover:bg-indigo-500/10 hover:text-indigo-600 group-hover:opacity-100 dark:text-neutral-500 dark:hover:text-indigo-300"
             @click="emit('restore', snapshot.id)"
           >
             恢复

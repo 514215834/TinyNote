@@ -35,7 +35,7 @@ async function backupNow(): Promise<void> {
 <template>
   <div
     v-if="showBanner"
-    class="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200"
+    class="relative z-10 flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-amber-500/20 bg-amber-100/55 px-5 py-2 text-xs text-amber-800 backdrop-blur-xl backdrop-saturate-150 dark:border-amber-400/15 dark:bg-amber-500/10 dark:text-amber-200"
     role="status"
   >
     <span class="min-w-0 flex-1">
@@ -49,14 +49,14 @@ async function backupNow(): Promise<void> {
     <button
       type="button"
       :disabled="backupBusy"
-      class="shrink-0 rounded-md bg-amber-600 px-2.5 py-1 font-medium text-white hover:bg-amber-500 disabled:opacity-50 dark:bg-amber-500 dark:text-amber-950 dark:hover:bg-amber-400"
+      class="shrink-0 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-3 py-1 font-medium text-white shadow-sm shadow-amber-500/30 transition-all hover:from-amber-400 hover:to-orange-400 disabled:opacity-50"
       @click="backupNow"
     >
       立即备份
     </button>
     <button
       type="button"
-      class="shrink-0 rounded-md px-2 py-1 text-amber-700 hover:bg-amber-100 dark:text-amber-300 dark:hover:bg-amber-900/40"
+      class="shrink-0 rounded-full px-2.5 py-1 text-amber-700 transition-colors hover:bg-amber-500/12 dark:text-amber-300 dark:hover:bg-amber-400/10"
       @click="settings.dismissBackupBanner()"
     >
       暂不提醒

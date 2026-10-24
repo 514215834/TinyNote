@@ -157,13 +157,11 @@ function removeFolder(folder: Folder): void {
 </script>
 
 <template>
-  <aside
-    class="flex w-80 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-neutral-800 dark:bg-neutral-900"
-  >
+  <aside class="glass flex w-80 shrink-0 flex-col overflow-hidden rounded-2xl">
     <div class="space-y-2 p-3">
       <button
         type="button"
-        class="w-full rounded-lg bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
+        class="w-full rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-3 py-2 text-sm font-medium text-white shadow-sm shadow-indigo-500/30 transition-all hover:from-indigo-400 hover:to-violet-400 hover:shadow-md hover:shadow-indigo-500/40 active:scale-[0.99]"
         @click="createNote()"
       >
         + 新建笔记
@@ -174,15 +172,15 @@ function removeFolder(folder: Folder): void {
         placeholder="搜索笔记…（Ctrl+K 聚焦）"
         aria-label="搜索笔记"
         data-note-search
-        class="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-1.5 text-sm outline-none placeholder:text-gray-400 focus:border-gray-400 dark:border-neutral-700 dark:placeholder:text-neutral-600 dark:focus:border-neutral-500"
+        class="w-full rounded-full border border-gray-900/10 bg-white/50 px-3.5 py-1.5 text-sm outline-none transition-colors placeholder:text-gray-400 focus:border-indigo-400/60 focus:bg-white/80 focus:ring-2 focus:ring-indigo-400/20 dark:border-white/10 dark:bg-white/5 dark:placeholder:text-neutral-500 dark:focus:border-indigo-400/50 dark:focus:bg-white/10"
       />
     </div>
 
     <!-- 文件夹（F-201，仅一层） -->
     <nav class="px-2 pb-1" aria-label="文件夹">
       <div
-        :class="notesStore.activeFolderId === null ? 'bg-gray-100 dark:bg-neutral-800' : 'hover:bg-gray-50 dark:hover:bg-neutral-800/60'"
-        class="group cursor-pointer rounded-lg px-3 py-1.5 text-sm"
+        :class="notesStore.activeFolderId === null ? 'bg-white/80 shadow-sm dark:bg-white/10' : 'hover:bg-white/50 dark:hover:bg-white/5'"
+        class="group cursor-pointer rounded-xl px-3 py-1.5 text-sm transition-colors"
         @dragover.prevent
         @drop="onDrop(null)"
         @click="applyFolder(null)"
@@ -195,8 +193,8 @@ function removeFolder(folder: Folder): void {
       <div
         v-for="folder in foldersStore.folders"
         :key="folder.id"
-        :class="notesStore.activeFolderId === folder.id ? 'bg-gray-100 dark:bg-neutral-800' : 'hover:bg-gray-50 dark:hover:bg-neutral-800/60'"
-        class="group/f relative cursor-pointer rounded-lg px-3 py-1.5 text-sm"
+        :class="notesStore.activeFolderId === folder.id ? 'bg-white/80 shadow-sm dark:bg-white/10' : 'hover:bg-white/50 dark:hover:bg-white/5'"
+        class="group/f relative cursor-pointer rounded-xl px-3 py-1.5 text-sm transition-colors"
         @dragover.prevent
         @drop="onDrop(folder.id)"
         @click="applyFolder(folder.id)"
@@ -287,7 +285,7 @@ function removeFolder(folder: Folder): void {
     </nav>
 
     <!-- 标签云（F-202），点击过滤 -->
-    <div v-if="tags.length > 0" class="border-t border-gray-200 px-3 py-2 dark:border-neutral-800">
+    <div v-if="tags.length > 0" class="border-t border-gray-900/8 px-3 py-2 dark:border-white/8">
       <p class="mb-1.5 text-[11px] font-medium text-gray-400">标签</p>
       <div class="flex flex-wrap gap-1.5">
         <button
@@ -296,10 +294,10 @@ function removeFolder(folder: Folder): void {
           type="button"
           :class="
             notesStore.activeTag === item.tag
-              ? 'bg-gray-900 text-white dark:bg-neutral-100 dark:text-neutral-900'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700'
+              ? 'bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-sm shadow-indigo-500/30'
+              : 'bg-white/60 text-gray-600 hover:bg-white/90 dark:bg-white/8 dark:text-neutral-300 dark:hover:bg-white/15'
           "
-          class="rounded-full px-2 py-0.5 text-xs"
+          class="rounded-full px-2.5 py-0.5 text-xs transition-colors"
           @click="toggleTag(item.tag)"
         >
           {{ item.tag }}
@@ -324,10 +322,10 @@ function removeFolder(folder: Folder): void {
         :key="note.id"
         :class="
           note.id === notesStore.selectedId
-            ? 'bg-gray-100 dark:bg-neutral-800'
-            : 'hover:bg-gray-50 dark:hover:bg-neutral-800/60'
+            ? 'bg-white/85 shadow-sm ring-1 ring-indigo-400/30 dark:bg-white/10 dark:ring-indigo-400/25'
+            : 'hover:bg-white/55 dark:hover:bg-white/5'
         "
-        class="group relative cursor-pointer rounded-lg px-3 py-2"
+        class="group relative cursor-pointer rounded-xl px-3 py-2 transition-colors"
         draggable="true"
         @dragstart="dragNoteId = note.id"
         @dragend="dragNoteId = null"
@@ -451,14 +449,14 @@ function removeFolder(folder: Folder): void {
         <!-- 移动菜单（F-201）：列出全部文件夹与「未分类」 -->
         <div
           v-if="movingMenuId === note.id"
-          class="absolute right-2 top-9 z-10 w-40 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-neutral-700 dark:bg-neutral-800"
+          class="glass-strong absolute right-2 top-9 z-10 w-40 rounded-xl py-1"
           role="menu"
           aria-label="移动到文件夹"
           @click.stop
         >
           <button
             type="button"
-            class="w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50 dark:hover:bg-neutral-700/60"
+            class="w-full px-3 py-1.5 text-left text-xs hover:bg-gray-900/5 dark:hover:bg-white/8"
             role="menuitem"
             @click="moveNote(note, null)"
           >
@@ -468,7 +466,7 @@ function removeFolder(folder: Folder): void {
             v-for="folder in foldersStore.folders"
             :key="folder.id"
             type="button"
-            class="w-full truncate px-3 py-1.5 text-left text-xs hover:bg-gray-50 dark:hover:bg-neutral-700/60"
+            class="w-full truncate px-3 py-1.5 text-left text-xs hover:bg-gray-900/5 dark:hover:bg-white/8"
             role="menuitem"
             @click="moveNote(note, folder.id)"
           >
@@ -479,11 +477,11 @@ function removeFolder(folder: Folder): void {
     </nav>
 
     <!-- 回收站入口（F-204） -->
-    <div class="shrink-0 border-t border-gray-200 px-2 py-2 dark:border-neutral-800">
+    <div class="shrink-0 border-t border-gray-900/8 px-2 py-2 dark:border-white/8">
       <button
         type="button"
-        class="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-sm"
-        :class="inTrash ? 'bg-gray-100 dark:bg-neutral-800' : 'hover:bg-gray-50 dark:hover:bg-neutral-800/60'"
+        class="flex w-full items-center justify-between rounded-xl px-3 py-1.5 text-sm transition-colors"
+        :class="inTrash ? 'bg-white/80 shadow-sm dark:bg-white/10' : 'hover:bg-white/55 dark:hover:bg-white/5'"
         aria-label="打开回收站"
         @click="router.push({ name: 'trash' })"
       >

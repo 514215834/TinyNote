@@ -53,12 +53,19 @@ useHotkeys([
 </script>
 
 <template>
-  <div class="flex h-dvh flex-col bg-gray-50 text-gray-900 dark:bg-neutral-900 dark:text-neutral-100">
+  <!-- 液态玻璃布局：环境光晕打底，顶栏 / 侧栏 / 主区为三块浮动的磨砂玻璃 -->
+  <div class="relative flex h-dvh flex-col overflow-hidden text-gray-900 dark:text-neutral-100">
+    <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+      <span class="orb left-[-6rem] top-[-8rem] h-[30rem] w-[30rem] bg-indigo-300/45 dark:bg-indigo-500/20"></span>
+      <span class="orb right-[-8rem] top-1/4 h-[26rem] w-[26rem] bg-sky-300/40 dark:bg-sky-500/15" style="animation-delay: -9s"></span>
+      <span class="orb bottom-[-10rem] left-1/3 h-[28rem] w-[28rem] bg-rose-300/35 dark:bg-fuchsia-500/12" style="animation-delay: -17s"></span>
+    </div>
+
     <AppHeader />
     <BackupBanner />
-    <div class="flex min-h-0 flex-1">
+    <div class="flex min-h-0 flex-1 gap-3 p-3">
       <NoteListSidebar />
-      <main class="min-w-0 flex-1">
+      <main class="glass min-w-0 flex-1 overflow-hidden rounded-2xl">
         <RouterView />
       </main>
     </div>

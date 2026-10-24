@@ -16,17 +16,19 @@ const notesStore = useNotesStore()
     v-else
     class="flex h-full flex-col items-center justify-center gap-1 text-sm text-gray-400 dark:text-neutral-500"
   >
-    <template v-if="notesStore.activeFolderId !== null">
-      <span>这个文件夹还没有笔记</span>
-      <span>点击左侧「+ 新建笔记」，将创建到当前文件夹</span>
-    </template>
-    <template v-else-if="notesStore.notes.length > 0">
-      <span>选择左侧一篇笔记</span>
-      <span>或点击「+ 新建笔记」</span>
-    </template>
-    <template v-else>
-      <span>还没有笔记</span>
-      <span>点击左侧「+ 新建笔记」开始记录</span>
-    </template>
+    <div class="rounded-2xl border border-gray-900/8 bg-white/45 px-10 py-8 text-center shadow-sm backdrop-blur-sm dark:border-white/8 dark:bg-white/[0.04]">
+      <template v-if="notesStore.activeFolderId !== null">
+        <span class="block">这个文件夹还没有笔记</span>
+        <span class="mt-1 block text-xs">点击左侧「+ 新建笔记」，将创建到当前文件夹</span>
+      </template>
+      <template v-else-if="notesStore.notes.length > 0">
+        <span class="block">选择左侧一篇笔记</span>
+        <span class="mt-1 block text-xs">或点击「+ 新建笔记」</span>
+      </template>
+      <template v-else>
+        <span class="block">还没有笔记</span>
+        <span class="mt-1 block text-xs">点击左侧「+ 新建笔记」开始记录</span>
+      </template>
+    </div>
   </div>
 </template>

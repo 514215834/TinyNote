@@ -25,13 +25,13 @@ function emptyTrash(): void {
 <template>
   <section class="flex h-full min-w-0 flex-1 flex-col">
     <header
-      class="flex shrink-0 items-center gap-3 border-b border-gray-200 px-6 py-3 dark:border-neutral-800"
+      class="flex shrink-0 items-center gap-3 border-b border-gray-900/8 px-6 py-3 dark:border-white/8"
     >
       <button
         type="button"
         aria-label="返回笔记"
         title="返回笔记"
-        class="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
+        class="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-white/60 dark:text-neutral-400 dark:hover:bg-white/8"
         @click="router.push({ name: 'notes' })"
       >
         <svg
@@ -52,7 +52,7 @@ function emptyTrash(): void {
       <span class="text-xs text-gray-400">{{ notesStore.trashedNotes.length }} 条</span>
       <button
         type="button"
-        class="ml-auto rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+        class="ml-auto rounded-full border border-gray-900/10 bg-white/60 px-3.5 py-1.5 text-xs text-gray-600 transition-colors hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-white/5 dark:text-neutral-300 dark:hover:bg-white/10"
         :disabled="notesStore.trashedNotes.length === 0"
         @click="emptyTrash"
       >
@@ -66,11 +66,11 @@ function emptyTrash(): void {
       >
         回收站是空的
       </p>
-      <ul v-else class="divide-y divide-gray-100 dark:divide-neutral-800">
+      <ul v-else class="space-y-1">
         <li
           v-for="note in notesStore.trashedNotes"
           :key="note.id"
-          class="flex items-center gap-4 py-3"
+          class="flex items-center gap-4 rounded-xl border border-gray-900/8 bg-white/45 px-4 py-3 shadow-sm transition-colors hover:bg-white/70 dark:border-white/8 dark:bg-white/[0.04] dark:hover:bg-white/[0.08]"
         >
           <div class="min-w-0 flex-1">
             <p class="truncate text-sm font-medium">{{ displayTitle(note) }}</p>
@@ -81,14 +81,14 @@ function emptyTrash(): void {
           </div>
           <button
             type="button"
-            class="shrink-0 rounded-lg border border-gray-200 px-3 py-1 text-xs hover:bg-gray-50 dark:border-neutral-700 dark:hover:bg-neutral-800"
+            class="shrink-0 rounded-full border border-gray-900/10 bg-white/60 px-3 py-1 text-xs transition-colors hover:bg-white/95 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
             @click="restore(note.id)"
           >
             恢复
           </button>
           <button
             type="button"
-            class="shrink-0 rounded-lg border border-gray-200 px-3 py-1 text-xs text-red-500 hover:bg-red-50 dark:border-neutral-700 dark:hover:bg-red-950/40"
+            class="shrink-0 rounded-full border border-red-500/25 bg-red-500/5 px-3 py-1 text-xs text-red-500 transition-colors hover:bg-red-500/12 dark:border-red-400/25 dark:hover:bg-red-400/10"
             @click="removeForever(note.id, displayTitle(note))"
           >
             彻底删除
