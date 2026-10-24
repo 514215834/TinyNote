@@ -1,4 +1,6 @@
-// PWA 图标生成（F-401）：零依赖，手写 PNG 编码（zlib + CRC32）+ SDF 光栅化。
+// 【遗留备用】T 字 logo 图标生成（F-401 初版）：零依赖，手写 PNG 编码（zlib + CRC32）+ SDF 光栅化。
+// 自 v0.5.1 起应用图标改用封面图生成：powershell -File scripts/generate-icons.ps1 -Source <图片>，
+// 本脚本仅在需要还原「T 字 logo」时运行，会覆盖 public/ 下的同名图标文件。
 // 产出：public/pwa-192x192.png、public/pwa-512x512.png（purpose any，圆角）、
 //       public/pwa-maskable-512.png（purpose maskable，满幅）、public/apple-touch-icon.png（180，满幅）。
 // 运行：node scripts/generate-icons.mjs
