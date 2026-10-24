@@ -16,10 +16,20 @@ import { wipeLocalData } from '@/features/pwa/wipe'
 import SyncSection from '@/features/sync/SyncSection.vue'
 
 /**
- * 设置面板（F-521/F-522/F-601）：外观定制（语言/主题色/字体/字号/行宽）、浏览器缓存管理。
+ * 设置面板（F-521/F-522/F-601）：标签页布局——外观 / 同步 / 存储 三个页签，
+ * 弹层定高内部滚动（面板内容随迭代膨胀，单列长滚动查找成本高，v1.0.1 反馈迭代）。
  * 弹层样式沿用 glass-strong 惯例；Esc 与点击遮罩关闭。
  */
 const settings = useSettingsStore()
+
+type SettingsTab = 'appearance' | 'sync' | 'storage'
+/** 页签状态存组件作用域：面板反复开关时停留在上次的页签（排查同步问题时 reopen 不用重找） */
+const activeTab = ref<SettingsTab>('appearance')
+const TABS: { value: SettingsTab; labelKey: string }[] = [
+  { value: 'appearance', labelKey: 'settings.tabAppearance' },
+  { value: 'sync', labelKey: 'settings.tabSync' },
+  { value: 'storage', labelKey: 'settings.tabStorage' },
+]
 
 useEventListener(window, 'keydown', (event) => {
   if (event.key === 'Escape' && settings.panelOpen) settings.closePanel()
@@ -105,13 +115,36 @@ function setFontSize(delta: number): void {
     @click.self="settings.closePanel()"
   >
     <div
-      class="glass-strong mx-auto mt-[10vh] w-[min(26rem,92vw)] rounded-2xl p-5 shadow-xl"
+      class="glass-strong mx-auto mt-[8vh] flex max-h-[80vh] w-[min(26rem,92vw)] flex-col rounded-2xl p-5 shadow-xl"
       role="dialog"
       aria-modal="true"
       :aria-label="t('settings.title')"
     >
-      <div class="mb-4 flex items-center justify-between">
+      <!-- 标题 + 页签（v1.0.1：外观/同步/存储分页，页签样式沿用编辑器模式切换的胶囊控件） -->
+      <div class="mb-3 flex shrink-0 items-center justify-between gap-3">
         <h2 class="text-base font-semibold">{{ t('settings.title') }}</h2>
+        <div
+          role="tablist"
+          :aria-label="t('settings.title')"
+          class="flex items-center rounded-full border border-gray-900/10 bg-white/50 p-0.5 text-xs shadow-sm dark:border-white/10 dark:bg-white/5"
+        >
+          <button
+            v-for="tab in TABS"
+            :key="tab.value"
+            type="button"
+            role="tab"
+            :aria-selected="activeTab === tab.value"
+            class="rounded-full px-3 py-1 transition-colors"
+            :class="
+              activeTab === tab.value
+                ? 'bg-white text-gray-900 shadow-sm dark:bg-white/15 dark:text-neutral-100'
+                : 'text-gray-500 hover:text-gray-800 dark:text-neutral-400 dark:hover:text-neutral-200'
+            "
+            @click="activeTab = tab.value"
+          >
+            {{ t(tab.labelKey) }}
+          </button>
+        </div>
         <button
           type="button"
           class="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-white/60 hover:text-gray-700 dark:hover:bg-white/10 dark:hover:text-neutral-200"
@@ -124,197 +157,203 @@ function setFontSize(delta: number): void {
         </button>
       </div>
 
-      <!-- 界面语言（F-601） -->
-      <section aria-label="界面语言" class="mb-5">
-        <p class="mb-2 text-xs font-medium text-gray-400">{{ t('settings.language') }}</p>
-        <div class="flex gap-1.5">
-          <button
-            v-for="item in LOCALES"
-            :key="item.value"
-            type="button"
-            class="rounded-full px-3 py-1 text-xs transition-colors"
-            :class="locale === item.value ? 'bg-accent text-white shadow-sm' : 'bg-white/60 text-gray-600 hover:bg-white/90 dark:bg-white/8 dark:text-neutral-300 dark:hover:bg-white/15'"
-            :aria-pressed="locale === item.value"
-            @click="setLocale(item.value)"
-          >
-            {{ item.label }}
-          </button>
-        </div>
-      </section>
-
-      <!-- 外观：主题色 -->
-      <section aria-label="主题色" class="mb-5">
-        <p class="mb-2 text-xs font-medium text-gray-400">{{ t('settings.accent') }}</p>
-        <div class="flex flex-wrap items-center gap-2">
-          <button
-            v-for="preset in ACCENT_PRESETS"
-            :key="preset.id"
-            type="button"
-            class="h-7 w-7 rounded-full transition-transform hover:scale-110"
-            :class="settings.accentId === preset.id ? 'ring-2 ring-gray-900/40 ring-offset-2 ring-offset-white dark:ring-white/50 dark:ring-offset-neutral-800' : ''"
-            :style="{ backgroundColor: preset.accent }"
-            :title="accentLabel(preset.id)"
-            :aria-label="t('settings.accentAria', { label: accentLabel(preset.id) })"
-            :aria-pressed="settings.accentId === preset.id"
-            @click="pickAccent(preset.id)"
-          ></button>
-          <label
-            class="relative flex h-7 cursor-pointer items-center gap-1.5 rounded-full border border-gray-900/10 px-2.5 text-xs text-gray-500 transition-colors hover:bg-white/60 dark:border-white/10 dark:text-neutral-400 dark:hover:bg-white/10"
-            :class="settings.accentId === 'custom' ? 'ring-2 ring-gray-900/40 ring-offset-2 ring-offset-white dark:ring-white/50 dark:ring-offset-neutral-800' : ''"
-          >
-            {{ t('settings.accentCustom') }}
-            <input
-              type="color"
-              :value="settings.accentCustom"
-              :aria-label="t('settings.accentCustomAria')"
-              class="h-4 w-4 cursor-pointer appearance-none rounded-full border-0 bg-transparent p-0"
-              @input="onCustomColor"
-            />
-          </label>
-        </div>
-      </section>
-
-      <!-- 外观：环境光晕开关（F-521） -->
-      <section aria-label="环境光晕" class="mb-5">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-xs font-medium text-gray-400">{{ t('settings.ambient') }}</p>
-            <p class="mt-0.5 text-[11px] text-gray-400/80 dark:text-neutral-500">
-              {{ t('settings.ambientDesc') }}
-            </p>
+      <!-- 页签内容：定高内部滚动，切换不重挂载（存储摘要只读一次） -->
+      <div class="min-h-0 flex-1 overflow-y-auto pr-1">
+        <!-- 外观：语言 / 主题色 / 光晕 / 字体 / 字号 / 行宽 -->
+        <div v-show="activeTab === 'appearance'">
+          <div class="mb-5 flex items-center justify-between gap-2" aria-label="界面语言">
+            <p class="text-xs font-medium text-gray-400">{{ t('settings.language') }}</p>
+            <div class="flex gap-1">
+              <button
+                v-for="item in LOCALES"
+                :key="item.value"
+                type="button"
+                class="rounded-full px-2.5 py-0.5 text-xs transition-colors"
+                :class="locale === item.value ? 'bg-accent text-white shadow-sm' : 'bg-white/60 text-gray-600 hover:bg-white/90 dark:bg-white/8 dark:text-neutral-300 dark:hover:bg-white/15'"
+                :aria-pressed="locale === item.value"
+                @click="setLocale(item.value)"
+              >
+                {{ item.label }}
+              </button>
+            </div>
           </div>
-          <button
-            type="button"
-            role="switch"
-            :aria-checked="settings.ambientEnabled"
-            class="relative h-5 w-9 shrink-0 rounded-full transition-colors"
-            :class="settings.ambientEnabled ? 'bg-accent' : 'bg-gray-300 dark:bg-neutral-600'"
-            @click="settings.ambientEnabled = !settings.ambientEnabled"
-          >
-            <span
-              class="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all"
-              :class="settings.ambientEnabled ? 'left-[1.125rem]' : 'left-0.5'"
-            ></span>
-          </button>
-        </div>
-      </section>
 
-      <!-- 外观：正文字体 -->
-      <section aria-label="正文字体" class="mb-5">
-        <p class="mb-2 text-xs font-medium text-gray-400">{{ t('settings.font') }}</p>
-        <div class="flex gap-1.5">
-          <button
-            v-for="font in FONTS"
-            :key="font.value"
-            type="button"
-            class="rounded-full px-3 py-1 text-xs transition-colors"
-            :class="settings.fontFamily === font.value ? 'bg-accent text-white shadow-sm' : 'bg-white/60 text-gray-600 hover:bg-white/90 dark:bg-white/8 dark:text-neutral-300 dark:hover:bg-white/15'"
-            :aria-pressed="settings.fontFamily === font.value"
-            @click="settings.fontFamily = font.value"
-          >
-            <span :style="{ fontFamily: FONT_STACKS[font.value] }">{{ t(font.labelKey) }}</span>
-          </button>
-        </div>
-      </section>
+          <!-- 主题色 -->
+          <section aria-label="主题色" class="mb-5">
+            <p class="mb-2 text-xs font-medium text-gray-400">{{ t('settings.accent') }}</p>
+            <div class="flex flex-wrap items-center gap-2">
+              <button
+                v-for="preset in ACCENT_PRESETS"
+                :key="preset.id"
+                type="button"
+                class="h-7 w-7 rounded-full transition-transform hover:scale-110"
+                :class="settings.accentId === preset.id ? 'ring-2 ring-gray-900/40 ring-offset-2 ring-offset-white dark:ring-white/50 dark:ring-offset-neutral-800' : ''"
+                :style="{ backgroundColor: preset.accent }"
+                :title="accentLabel(preset.id)"
+                :aria-label="t('settings.accentAria', { label: accentLabel(preset.id) })"
+                :aria-pressed="settings.accentId === preset.id"
+                @click="pickAccent(preset.id)"
+              ></button>
+              <label
+                class="relative flex h-7 cursor-pointer items-center gap-1.5 rounded-full border border-gray-900/10 px-2.5 text-xs text-gray-500 transition-colors hover:bg-white/60 dark:border-white/10 dark:text-neutral-400 dark:hover:bg-white/10"
+                :class="settings.accentId === 'custom' ? 'ring-2 ring-gray-900/40 ring-offset-2 ring-offset-white dark:ring-white/50 dark:ring-offset-neutral-800' : ''"
+              >
+                {{ t('settings.accentCustom') }}
+                <input
+                  type="color"
+                  :value="settings.accentCustom"
+                  :aria-label="t('settings.accentCustomAria')"
+                  class="h-4 w-4 cursor-pointer appearance-none rounded-full border-0 bg-transparent p-0"
+                  @input="onCustomColor"
+                />
+              </label>
+            </div>
+          </section>
 
-      <!-- 外观：预览字号 -->
-      <section aria-label="预览字号" class="mb-5">
-        <p class="mb-2 flex items-center justify-between text-xs font-medium text-gray-400">
-          {{ t('settings.fontSize') }}
-          <span class="text-gray-500 dark:text-neutral-400">{{ settings.previewFontSize }}px</span>
-        </p>
-        <div class="flex items-center gap-2">
-          <button
-            type="button"
-            class="h-7 w-7 rounded-full bg-white/60 text-sm text-gray-600 transition-colors hover:bg-white/90 disabled:opacity-40 dark:bg-white/8 dark:text-neutral-300 dark:hover:bg-white/15"
-            :aria-label="t('settings.fontSizeSmaller')"
-            :disabled="Number(settings.previewFontSize) <= 12"
-            @click="setFontSize(-1)"
-          >
-            −
-          </button>
-          <input
-            type="range"
-            min="12"
-            max="20"
-            step="1"
-            :value="settings.previewFontSize"
-            :aria-label="t('settings.fontSize')"
-            class="h-1 flex-1 accent-[var(--color-accent)]"
-            @input="settings.previewFontSize = Number(($event.target as HTMLInputElement).value)"
-          />
-          <button
-            type="button"
-            class="h-7 w-7 rounded-full bg-white/60 text-sm text-gray-600 transition-colors hover:bg-white/90 disabled:opacity-40 dark:bg-white/8 dark:text-neutral-300 dark:hover:bg-white/15"
-            :aria-label="t('settings.fontSizeLarger')"
-            :disabled="Number(settings.previewFontSize) >= 20"
-            @click="setFontSize(1)"
-          >
-            +
-          </button>
-        </div>
-      </section>
+          <!-- 环境光晕开关（F-521） -->
+          <section aria-label="环境光晕" class="mb-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-xs font-medium text-gray-400">{{ t('settings.ambient') }}</p>
+                <p class="mt-0.5 text-[11px] text-gray-400/80 dark:text-neutral-500">
+                  {{ t('settings.ambientDesc') }}
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                :aria-checked="settings.ambientEnabled"
+                class="relative h-5 w-9 shrink-0 rounded-full transition-colors"
+                :class="settings.ambientEnabled ? 'bg-accent' : 'bg-gray-300 dark:bg-neutral-600'"
+                @click="settings.ambientEnabled = !settings.ambientEnabled"
+              >
+                <span
+                  class="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all"
+                  :class="settings.ambientEnabled ? 'left-[1.125rem]' : 'left-0.5'"
+                ></span>
+              </button>
+            </div>
+          </section>
 
-      <!-- 外观：行宽 -->
-      <section aria-label="行宽" class="mb-1">
-        <p class="mb-2 text-xs font-medium text-gray-400">{{ t('settings.width') }}</p>
-        <div class="flex gap-1.5">
-          <button
-            v-for="width in WIDTHS"
-            :key="width.value"
-            type="button"
-            class="rounded-full px-3 py-1 text-xs transition-colors"
-            :class="settings.contentWidth === width.value ? 'bg-accent text-white shadow-sm' : 'bg-white/60 text-gray-600 hover:bg-white/90 dark:bg-white/8 dark:text-neutral-300 dark:hover:bg-white/15'"
-            :aria-pressed="settings.contentWidth === width.value"
-            :title="CONTENT_WIDTHS[width.value]"
-            @click="settings.contentWidth = width.value"
-          >
-            {{ t(width.labelKey) }}
-          </button>
-        </div>
-      </section>
+          <!-- 正文字体 -->
+          <section aria-label="正文字体" class="mb-5">
+            <p class="mb-2 text-xs font-medium text-gray-400">{{ t('settings.font') }}</p>
+            <div class="flex gap-1.5">
+              <button
+                v-for="font in FONTS"
+                :key="font.value"
+                type="button"
+                class="rounded-full px-3 py-1 text-xs transition-colors"
+                :class="settings.fontFamily === font.value ? 'bg-accent text-white shadow-sm' : 'bg-white/60 text-gray-600 hover:bg-white/90 dark:bg-white/8 dark:text-neutral-300 dark:hover:bg-white/15'"
+                :aria-pressed="settings.fontFamily === font.value"
+                @click="settings.fontFamily = font.value"
+              >
+                <span :style="{ fontFamily: FONT_STACKS[font.value] }">{{ t(font.labelKey) }}</span>
+              </button>
+            </div>
+          </section>
 
-      <!-- 缓存与存储（F-522，自数据菜单迁入） -->
-      <section
-        aria-label="缓存与存储"
-        class="mt-4 border-t border-gray-900/8 pt-4 text-xs leading-5 text-gray-500 dark:border-white/8 dark:text-neutral-400"
-      >
-        <p class="mb-2 text-xs font-medium text-gray-400">{{ t('settings.storage') }}</p>
-        <p v-if="storageSummary">
-          {{ t('settings.storageUsage', { usage: formatBytes(storageSummary.usage), quota: formatBytes(storageSummary.quota) }) }}
-          · {{ storageSummary.persisted ? t('settings.persisted') : t('settings.notPersisted') }}
-          <button
-            v-if="!storageSummary.persisted"
-            type="button"
-            class="ml-1 text-accent hover:underline"
-            @click="requestPersist"
-          >
-            {{ t('settings.requestPersist') }}
-          </button>
-        </p>
-        <p v-if="cacheSummary !== null" class="mt-1">
-          {{ t('settings.cacheSummary', { caches: cacheSummary.length, entries: cacheCount() }) }}
-        </p>
-        <div class="mt-2 flex items-center gap-2">
-          <button
-            type="button"
-            class="rounded-full border border-gray-900/10 bg-white/60 px-3 py-1 text-xs text-gray-600 transition-colors hover:bg-white/90 dark:border-white/10 dark:bg-white/5 dark:text-neutral-300 dark:hover:bg-white/10"
-            @click="clearCaches"
-          >
-            {{ t('settings.clearCaches') }}
-          </button>
-          <button
-            type="button"
-            class="rounded-full border border-red-500/25 bg-red-500/5 px-3 py-1 text-xs text-red-500 transition-colors hover:bg-red-500/12 dark:border-red-400/25 dark:hover:bg-red-400/10"
-            @click="wipeAllData"
-          >
-            {{ t('settings.wipeData') }}
-          </button>
-        </div>
-      </section>
+          <!-- 预览字号 -->
+          <section aria-label="预览字号" class="mb-5">
+            <p class="mb-2 flex items-center justify-between text-xs font-medium text-gray-400">
+              {{ t('settings.fontSize') }}
+              <span class="text-gray-500 dark:text-neutral-400">{{ settings.previewFontSize }}px</span>
+            </p>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                class="h-7 w-7 rounded-full bg-white/60 text-sm text-gray-600 transition-colors hover:bg-white/90 disabled:opacity-40 dark:bg-white/8 dark:text-neutral-300 dark:hover:bg-white/15"
+                :aria-label="t('settings.fontSizeSmaller')"
+                :disabled="Number(settings.previewFontSize) <= 12"
+                @click="setFontSize(-1)"
+              >
+                −
+              </button>
+              <input
+                type="range"
+                min="12"
+                max="20"
+                step="1"
+                :value="settings.previewFontSize"
+                :aria-label="t('settings.fontSize')"
+                class="h-1 flex-1 accent-[var(--color-accent)]"
+                @input="settings.previewFontSize = Number(($event.target as HTMLInputElement).value)"
+              />
+              <button
+                type="button"
+                class="h-7 w-7 rounded-full bg-white/60 text-sm text-gray-600 transition-colors hover:bg-white/90 disabled:opacity-40 dark:bg-white/8 dark:text-neutral-300 dark:hover:bg-white/15"
+                :aria-label="t('settings.fontSizeLarger')"
+                :disabled="Number(settings.previewFontSize) >= 20"
+                @click="setFontSize(1)"
+              >
+                +
+              </button>
+            </div>
+          </section>
 
-      <!-- 同步（F-501/F-502/F-503）：GitHub Gist 多设备同步 -->
-      <SyncSection />
+          <!-- 行宽 -->
+          <section aria-label="行宽">
+            <p class="mb-2 text-xs font-medium text-gray-400">{{ t('settings.width') }}</p>
+            <div class="flex gap-1.5">
+              <button
+                v-for="width in WIDTHS"
+                :key="width.value"
+                type="button"
+                class="rounded-full px-3 py-1 text-xs transition-colors"
+                :class="settings.contentWidth === width.value ? 'bg-accent text-white shadow-sm' : 'bg-white/60 text-gray-600 hover:bg-white/90 dark:bg-white/8 dark:text-neutral-300 dark:hover:bg-white/15'"
+                :aria-pressed="settings.contentWidth === width.value"
+                :title="CONTENT_WIDTHS[width.value]"
+                @click="settings.contentWidth = width.value"
+              >
+                {{ t(width.labelKey) }}
+              </button>
+            </div>
+          </section>
+        </div>
+
+        <!-- 同步（F-501/F-502/F-503）：GitHub Gist 多设备同步 -->
+        <div v-show="activeTab === 'sync'" class="pb-1">
+          <SyncSection />
+        </div>
+
+        <!-- 存储（F-522）：用量/持久化/离线缓存/清空数据 -->
+        <div
+          v-show="activeTab === 'storage'"
+          class="text-xs leading-5 text-gray-500 dark:text-neutral-400"
+        >
+          <p v-if="storageSummary">
+            {{ t('settings.storageUsage', { usage: formatBytes(storageSummary.usage), quota: formatBytes(storageSummary.quota) }) }}
+            · {{ storageSummary.persisted ? t('settings.persisted') : t('settings.notPersisted') }}
+            <button
+              v-if="!storageSummary.persisted"
+              type="button"
+              class="ml-1 text-accent hover:underline"
+              @click="requestPersist"
+            >
+              {{ t('settings.requestPersist') }}
+            </button>
+          </p>
+          <p v-if="cacheSummary !== null" class="mt-1">
+            {{ t('settings.cacheSummary', { caches: cacheSummary.length, entries: cacheCount() }) }}
+          </p>
+          <div class="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              class="rounded-full border border-gray-900/10 bg-white/60 px-3 py-1 text-xs text-gray-600 transition-colors hover:bg-white/90 dark:border-white/10 dark:bg-white/5 dark:text-neutral-300 dark:hover:bg-white/10"
+              @click="clearCaches"
+            >
+              {{ t('settings.clearCaches') }}
+            </button>
+            <button
+              type="button"
+              class="rounded-full border border-red-500/25 bg-red-500/5 px-3 py-1 text-xs text-red-500 transition-colors hover:bg-red-500/12 dark:border-red-400/25 dark:hover:bg-red-400/10"
+              @click="wipeAllData"
+            >
+              {{ t('settings.wipeData') }}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
