@@ -44,7 +44,7 @@ function disconnect(): void {
 <template>
   <section
     aria-label="同步"
-    class="mt-4 border-t border-gray-900/8 pt-4 text-xs leading-5 text-gray-500 dark:border-white/8 dark:text-neutral-400"
+    class="text-xs leading-5 text-gray-500 dark:text-neutral-400"
   >
     <p class="mb-2 text-xs font-medium text-gray-400">{{ t('sync.title') }}</p>
 
