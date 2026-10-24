@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Note } from '@/types'
-import { filterNotes } from '@/features/search/search'
+import { filterByFolder, filterByTag, filterNotes } from '@/features/search/search'
 
 function makeNote(id: string, title: string, content: string, updatedAt = 1): Note {
   return {
@@ -39,5 +39,31 @@ describe('filterNotes（F-105）', () => {
 
   it('无命中返回空数组', () => {
     expect(filterNotes(notes, '不存在的关键词')).toEqual([])
+  })
+})
+
+describe('filterByFolder（F-205）', () => {
+  it('null 表示「全部笔记」，原样返回', () => {
+    expect(filterByFolder(notes, null)).toEqual(notes)
+  })
+
+  it('按 folderId 精确过滤', () => {
+    const inFolder = { ...makeNote('f1', '文件夹笔记', '内容'), folderId: 'f1' }
+    expect(filterByFolder([...notes, inFolder], 'f1')).toEqual([inFolder])
+    expect(filterByFolder([...notes, inFolder], '不存在的文件夹')).toEqual([])
+  })
+})
+
+describe('filterByTag（F-205）', () => {
+  it('null 表示不按标签过滤', () => {
+    expect(filterByTag(notes, null)).toEqual(notes)
+  })
+
+  it('大小写不敏感地按标签过滤', () => {
+    const work = { ...makeNote('w', '工作清单', '内容'), tags: ['Work'] }
+    const other = { ...makeNote('o', '购物', '内容'), tags: ['生活'] }
+    expect(filterByTag([work, other], 'work')).toEqual([work])
+    expect(filterByTag([work, other], 'WORK')).toEqual([work])
+    expect(filterByTag([work, other], '不存在的')).toEqual([])
   })
 })

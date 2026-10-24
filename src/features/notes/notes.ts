@@ -12,6 +12,11 @@ export function displayTitle(note: Pick<Note, 'title' | 'content'>): string {
   return '无标题笔记'
 }
 
+/** 置顶排序（F-203）：置顶笔记在列表最前；入参应已按 updatedAt 倒序，稳定排序保持组内原序 */
+export function sortNotesForList<T extends Pick<Note, 'pinned'>>(notes: T[]): T[] {
+  return [...notes].sort((a, b) => Number(b.pinned) - Number(a.pinned))
+}
+
 /** 由 Markdown 正文生成纯文本摘要（粗略去除常见标记符号） */
 export function makeExcerpt(content: string, max: number = 60): string {
   const text = content

@@ -2,7 +2,115 @@
 @plugin "@tailwindcss/typography";
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* highlight.js token 配色：浅/深两套 CSS 变量，替代整份 hljs 主题样式表 */
+/* ============================== 液态玻璃视觉基座 ============================== */
+
+/* 环境光底色：浅色冷灰蓝 / 深色近黑，彩色光晕由 App 内 orb 元素叠加 */
+body {
+  background-color: #eef0f7;
+}
+.dark body {
+  background-color: #0b0c11;
+}
+
+/* 环境光晕（App.vue 中 aria-hidden 装饰层引用）：缓慢漂移的液态色斑 */
+.orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(72px);
+  will-change: transform;
+  animation: orb-drift 26s ease-in-out infinite alternate;
+}
+@keyframes orb-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(4%, -6%, 0) scale(1.12);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .orb {
+    animation: none;
+  }
+}
+
+/* ============================== 玻璃表面 ============================== */
+
+@layer components {
+  /* 一级表面：顶栏、侧栏、主内容卡——半透明 + 大半径模糊 + 顶部内高光 */
+  .glass {
+    background-color: rgb(255 255 255 / 0.55);
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    border: 1px solid rgb(255 255 255 / 0.6);
+    box-shadow:
+      0 8px 32px rgb(15 23 42 / 0.07),
+      inset 0 1px 0 rgb(255 255 255 / 0.65);
+  }
+  .dark .glass {
+    background-color: rgb(23 24 30 / 0.52);
+    border-color: rgb(255 255 255 / 0.08);
+    box-shadow:
+      0 8px 32px rgb(0 0 0 / 0.4),
+      inset 0 1px 0 rgb(255 255 255 / 0.07);
+  }
+
+  /* 二级表面：浮层菜单、toast——更实一些保证文字可读 */
+  .glass-strong {
+    background-color: rgb(255 255 255 / 0.85);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgb(255 255 255 / 0.7);
+    box-shadow:
+      0 12px 40px rgb(15 23 42 / 0.14),
+      inset 0 1px 0 rgb(255 255 255 / 0.8);
+  }
+  .dark .glass-strong {
+    background-color: rgb(39 39 44 / 0.88);
+    border-color: rgb(255 255 255 / 0.1);
+    box-shadow:
+      0 12px 40px rgb(0 0 0 / 0.5),
+      inset 0 1px 0 rgb(255 255 255 / 0.08);
+  }
+}
+
+/* ============================== 滚动条 ============================== */
+
+/* Firefox：细滚动条 + 半透明滑块 */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(15 23 42 / 0.24) transparent;
+}
+html.dark {
+  scrollbar-color: rgb(255 255 255 / 0.2) transparent;
+}
+
+/* WebKit：透明轨道 + 圆角半透明滑块（内缩留边），悬停加深 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: rgb(15 23 42 / 0.2);
+  border: 3px solid transparent;
+  border-radius: 9999px;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(15 23 42 / 0.34);
+}
+.dark ::-webkit-scrollbar-thumb {
+  background-color: rgb(255 255 255 / 0.18);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(255 255 255 / 0.3);
+}
+
+/* ============================== highlight.js 配色 ============================== */
 :root {
   --hl-fg: #24292e;
   --hl-keyword: #cf222e;

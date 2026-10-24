@@ -30,9 +30,9 @@ TinyNote 是一个**部署在 GitHub Pages 上的本地优先（local-first）Ma
 | 响应式工具 | **@vueuse/core** | `useDark`（主题）、`watchDebounced`（搜索防抖）、`useEventListener` 等现成组合式函数，减少自写基础设施 | 自写 hooks |
 | 持久化 | **IndexedDB，经 Dexie.js 封装** | 容量远超 localStorage 的 5MB 上限；原生支持 Blob（图片附件）；支持索引查询 | localStorage（仅存 UI 偏好）、OPFS（远期评估） |
 | Markdown 渲染 | **markdown-it（默认 `html: false`）+ highlight.js** | 默认转义原始 HTML（安全基线）；插件生态成熟，任务列表、脚注等 v0.3 扩展直接加插件 | marked（默认不过滤 HTML，安全配置繁琐） |
-| 代码编辑器 | 阶段一：受控 `textarea`；阶段二升级 **vue-codemirror（CodeMirror 6）** | MVP 快速交付；CodeMirror 6 模块化、移动端友好、语法高亮可扩展，是迭代终态 | Monaco（桌面级体积，不适合移动场景） |
+| 代码编辑器 | 阶段一：受控 `textarea`（v0.1–v0.2）；阶段二升级 **vue-codemirror（CodeMirror 6）**，v0.3 已落地 | MVP 快速交付；CodeMirror 6 模块化、移动端友好、语法高亮可扩展，是迭代终态 | Monaco（桌面级体积，不适合移动场景） |
 | 样式 | **Tailwind CSS 4 + @tailwindcss/typography** | 迭代 UI 速度最快；typography 插件直接给 Markdown 预览提供排版 | CSS Modules |
-| PWA | **vite-plugin-pwa**（Workbox，v0.4 引入） | 一套配置获得离线缓存 + 桌面安装 | 手写 Service Worker |
+| PWA | **vite-plugin-pwa**（Workbox，v0.4 已落地） | 一套配置获得离线缓存 + 桌面安装（纯 Web/PWA 形态，不做 Electron/Tauri 打包） | 手写 Service Worker |
 | 搜索 | 阶段一：内存全量扫描；阶段二升级 **MiniSearch** | 数千篇以内直接扫描足够快；MiniSearch 支持前缀/模糊匹配，中文可配 n-gram 分词 | FlexSearch |
 | 单元测试 | **Vitest + @vue/test-utils（happy-dom）+ fake-indexeddb** | 与 Vite 共享配置；fake-indexeddb 让存储层测试跑真实 Dexie 代码路径 | Jest |
 | E2E 测试 | **Playwright** | 跨浏览器、自动等待、CI 友好 | Cypress |
@@ -48,7 +48,7 @@ flowchart TB
     subgraph UI["UI 层（Vue 3 组件）"]
         A1["NoteEditor（编辑/分栏/预览）"]
         A2["NoteListSidebar（搜索/列表）"]
-        A3["设置 / 回收站 / 命令面板（后续版本）"]
+        A3["设置 / 回收站 / 备份数据菜单 / 命令面板（回收站 v0.2、CodeMirror 编辑器·大纲·附件·备份 v0.3 已落地，其余后续版本）"]
     end
     subgraph APP["应用层（Pinia Store + Composables）"]
         B1["notesStore：列表、选中态、CRUD"]
@@ -160,6 +160,15 @@ db.version(2).stores({
   settings: 'key',
   attachments: 'id, noteId',
 }).upgrade(async (tx) => { /* 无需改造旧数据，留空即可 */ });
+
+// v3（v0.4：F-402 历史版本快照表）
+db.version(3).stores({
+  notes: 'id, folderId, updatedAt, *tags, trashedAt',
+  folders: 'id, name, order',
+  settings: 'key',
+  attachments: 'id, noteId',
+  snapshots: 'id, noteId, createdAt',
+}).upgrade(async (tx) => { /* 无需改造旧数据，留空即可 */ });
 ```
 
 要点：
@@ -189,7 +198,7 @@ db.version(2).stores({
 | ADR-001 | 路由模式 | **Hash 路由**（`createWebHashHistory`）。Pages 刷新 404 是硬伤，hash 路由零成本规避；笔记应用 URL 结构简单，hash 的 SEO 劣势无关紧要 |
 | ADR-002 | 主存储 | **IndexedDB（Dexie）**。localStorage 5MB 上限与无 Blob 支持直接排除；OPFS 更接近文件系统但兼容性/工具链不如 Dexie 成熟，列为远期评估项 |
 | ADR-003 | 主键策略 | **UUID v7**。时间前缀使主键即近似有序，省去额外排序索引；比自增 id 更适合未来多端同步合并 |
-| ADR-004 | 编辑器分阶段 | 先 `textarea`（MVP 快速交付），v0.3 升级 vue-codemirror（CodeMirror 6）。编辑器封装为独立组件，对外只暴露 v-model 式接口，升级对 store 层透明 |
+| ADR-004 | 编辑器分阶段 | 先 `textarea`（MVP 快速交付），v0.3 升级 vue-codemirror（CodeMirror 6）**（已完成）**。编辑器封装为独立组件，对外只暴露 v-model 式接口，升级对 store 层透明 |
 | ADR-005 | 同步路线 | **不自建服务器**。顺序：手动导出导入（v0.3）→ GitHub Gist（v0.5，用户自己提供 PAT）→ File System Access API 直连本地文件夹（探索项） |
 | ADR-006 | Markdown 安全 | markdown-it **默认 `html: false`**：源文本中的原始 HTML 标签一律转义；`v-html` 仅用于渲染 markdown-it 自身的输出（全项目唯一插口）；外链统一注入 `target="_blank"` + `rel="noopener noreferrer"` |
 | ADR-007 | Markdown 库选型 | **markdown-it** 优于 marked：默认安全基线（转义而非放行 HTML）、插件生态（v0.3 的任务列表/脚注直接加插件）、`linkify` 配置齐备 |
@@ -200,6 +209,7 @@ db.version(2).stores({
 ```text
 tinynote/
 ├── docs/                       # 本文档、ROADMAP、CHANGELOG
+├── scripts/                    # 辅助脚本（generate-icons.mjs：PWA 图标零依赖生成）
 ├── public/                     # 图标等静态资源
 ├── src/
 │   ├── main.ts                 # 应用入口：createApp + Pinia + Router
@@ -209,13 +219,20 @@ tinynote/
 │   ├── types/index.ts          # 领域实体（4.1 的落地文件）
 │   ├── features/               # 按功能域组织（核心可迭代单元）
 │   │   ├── notes/              #   NoteListSidebar / NotesView / NoteEditor
-│   │   │   ├── stores/notes.ts           # Pinia：列表、选中态、CRUD
+│   │   │   ├── stores/notes.ts           # Pinia：列表、回收站、选中态、过滤态、CRUD
 │   │   │   ├── composables/useAutoSave.ts
-│   │   │   └── notes.ts                  # 纯函数：displayTitle、makeExcerpt
-│   │   ├── search/             #   search.ts（纯过滤函数）+ stores/search.ts
-│   │   ├── editor/             #   （v0.3）vue-codemirror 封装
-│   │   ├── backup/             #   （v0.3）导出/导入
-│   │   └── settings/           #   stores/settings.ts（主题）
+│   │   │   └── notes.ts                  # 纯函数：displayTitle、makeExcerpt、置顶排序
+│   │   ├── folders/             #   （v0.2）folders.ts + stores/folders.ts
+│   │   ├── tags/                #   （v0.2）标签解析/统计纯函数
+│   │   ├── trash/               #   （v0.2）trash.ts（30 天清理口径）+ TrashView
+│   │   ├── search/             #   search.ts（纯过滤函数）+ highlight.ts + stores/search.ts
+│   │   ├── editor/             #   （v0.3 已落地）NoteCodeEditor.vue（CodeMirror 封装）+ setup.ts（扩展组）
+│   │   │   ├── attachments.ts             # 粘贴/拖入纯函数（准入/引用/插入/孤儿判定）
+│   │   │   └── stores/attachments.ts      # 附件 blob URL 生命周期 + 孤儿清理（F-406）
+│   │   ├── history/            #   （v0.4 已落地）history.ts（快照阈值/上限纯函数）+ HistoryPanel.vue + stores/history.ts
+│   │   ├── pwa/                #   （v0.4 已落地）storage.ts（持久化/用量）+ usePwaUpdate.ts + UpdateBanner.vue
+│   │   ├── backup/             #   （v0.3 已落地）backup.ts（manifest/迁移/命名纯函数）+ useBackup.ts（fflate 编排）+ BackupBanner.vue
+│   │   └── settings/           #   stores/settings.ts（主题 + 编辑器行号偏好 + 备份提醒状态）
 │   ├── components/             # 跨功能通用 UI（AppHeader 等）
 │   ├── composables/            # 跨功能组合式函数
 │   ├── lib/
@@ -299,7 +316,7 @@ jobs:
 | 搜索性能 | 输入防抖 200ms（`watchDebounced`）；MVP 内存扫描，笔记量 >5000 后切换 MiniSearch 倒排索引 |
 | 长列表 | 列表项超过阈值（约 200 条可视）后引入虚拟滚动（`@tanstack/vue-virtual`） |
 | 大文档 | 编辑器升级 CodeMirror 6 后，十万字符级文档流畅渲染；预览侧超长文档分块渲染 |
-| XSS | markdown-it `html: false`（ADR-006）：Markdown 中的 HTML 标签一律按纯文本展示；`v-html` 全项目仅 Markdown 渲染一处插口；外链统一 `target="_blank"` + `rel="noopener noreferrer"` |
+| XSS | markdown-it `html: false`（ADR-006）：Markdown 中的 HTML 标签一律按纯文本展示；`v-html` 全项目仅 Markdown 渲染一处插口；外链统一 `target="_blank"` + `rel="noopener noreferrer"`；附件图片（v0.3）只把 `tinynote-attachment://<id>` 替换为本地 blob URL（id 不进入属性，命中未映射时输出固定占位文案） |
 | 隐私 | 无任何第三方统计/字体 CDN；数据不出浏览器。Gist 同步为用户显式开启并提供自己的 PAT，PAT 只存本机 localStorage |
 | CSP | Pages 静态托管下建议通过 `<meta http-equiv="Content-Security-Policy">` 收紧脚本来源 |
 

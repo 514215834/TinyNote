@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { displayTitle, makeExcerpt } from '@/features/notes/notes'
+import { displayTitle, makeExcerpt, sortNotesForList } from '@/features/notes/notes'
 
 describe('displayTitle（F-104）', () => {
   it('优先使用标题字段（去除首尾空白）', () => {
@@ -32,5 +32,23 @@ describe('makeExcerpt（F-104）', () => {
 
   it('空内容显示占位文案', () => {
     expect(makeExcerpt('')).toBe('空白笔记')
+  })
+})
+
+describe('sortNotesForList（F-203）', () => {
+  it('置顶笔记排在最前，组内保持原有 updatedAt 倒序', () => {
+    const list = [
+      { id: 'a', pinned: false }, // 最旧
+      { id: 'b', pinned: false },
+      { id: 'c', pinned: true },
+      { id: 'd', pinned: true },
+    ]
+    expect(sortNotesForList(list).map((note) => note.id)).toEqual(['c', 'd', 'a', 'b'])
+  })
+
+  it('返回新数组，不改入参顺序', () => {
+    const list = [{ id: 'a', pinned: false }, { id: 'b', pinned: true }]
+    sortNotesForList(list)
+    expect(list.map((note) => note.id)).toEqual(['a', 'b'])
   })
 })

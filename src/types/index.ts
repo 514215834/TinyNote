@@ -44,11 +44,30 @@ export interface Setting {
   value: string
 }
 
-/** 备份格式 v1（v0.1–v0.2：JSON；v0.3 起附件改走 zip，见架构文档 4.4） */
+/**
+ * 备份格式（架构文档 4.4）：
+ * - schemaVersion 1（v0.1–v0.2）：单文件 JSON，无 attachments
+ * - schemaVersion 2（v0.3 起）：zip 包内的 manifest.json，notes/assets 附带在包内
+ *   attachments 为元数据列表，blob 本体存放在 file 指向的 zip 内路径
+ */
+export interface BackupAttachment {
+  id: string
+  noteId: string
+  name: string
+  mime: string
+  size: number
+  createdAt: number
+  /** zip 包内路径，如 `assets/<id>.png` */
+  file: string
+}
+
 export interface BackupFile {
   format: 'tinynote-backup'
-  schemaVersion: number
+  schemaVersion: number // 1 = JSON 全量备份；2 = zip 全量备份（含附件）
   exportedAt: number
   folders: Folder[]
+  /** 全量备份包含回收站中的笔记（trashed = true） */
   notes: Note[]
+  /** schemaVersion 2 起提供；导入 v1 备份时迁移函数补空数组 */
+  attachments?: BackupAttachment[]
 }

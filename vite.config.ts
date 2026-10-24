@@ -3,11 +3,40 @@ import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
+import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   // GitHub Pages 项目站点部署在子路径（/<仓库名>/）下，CI 注入 VITE_BASE
   base: process.env.VITE_BASE ?? '/',
-  plugins: [vue(), tailwindcss()],
+  plugins: [
+    vue(),
+    tailwindcss(),
+    // F-401/F-404：PWA。generateSW 预缓存全部构建产物，navigateFallback 支持离线直开；
+    // registerType=prompt 配合 UpdateBanner（usePwaUpdate）由用户确认后刷新。
+    // manifest 的 start_url/scope 由插件按 base 自动计算，子路径部署无需额外配置。
+    VitePWA({
+      injectRegister: null, // 注册逻辑由 virtual:pwa-register/vue 接管，避免重复注册
+      registerType: 'prompt',
+      includeAssets: ['apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png', 'pwa-maskable-512.png'],
+      manifest: {
+        name: 'TinyNote — 本地优先 Markdown 笔记',
+        short_name: 'TinyNote',
+        description: '部署在 GitHub Pages 上的本地优先 Markdown 笔记应用，数据保存在你自己的浏览器中。',
+        lang: 'zh-CN',
+        display: 'standalone',
+        theme_color: '#ffffff',
+        background_color: '#ffffff',
+        icons: [
+          { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
+          { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png' },
+          { src: 'pwa-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
+      },
+      workbox: {
+        navigateFallback: 'index.html',
+      },
+    }),
+  ],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
@@ -17,3 +46,4 @@ export default defineConfig({
     environment: 'happy-dom',
   },
 })
+

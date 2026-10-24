@@ -11,3 +11,8 @@ export function formatRelativeTime(timestamp: number, now: number = Date.now()):
   if (diff < 2 * DAY) return '昨天'
   return new Date(timestamp).toLocaleDateString('zh-CN')
 }
+
+/** 完整时间展示：统计栏（F-207）与回收站删除时间用 */
+export function formatDateTime(timestamp: number): string {
+  return new Date(timestamp).toLocaleString('zh-CN', { hour12: false })
+}
