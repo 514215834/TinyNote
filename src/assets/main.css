@@ -4,17 +4,11 @@
 
 /* ============================== 主题 token（F-521 外观定制） ============================== */
 
-/* 强调色与光晕的默认值即 indigo 预设；运行时由 settings store 按预设/自定义取色
+/* 强调色的默认值即 indigo 预设；运行时由 settings store 按预设/自定义取色
  * 在 documentElement 上以内联样式覆盖（内联优先级高于 :root/@theme 定义）。 */
 @theme {
   --color-accent: #6366f1;
   --color-accent-strong: #4f46e5;
-  --orb-1: rgb(165 180 252 / 0.45);
-  --orb-2: rgb(125 211 252 / 0.4);
-  --orb-3: rgb(253 164 175 / 0.35);
-  --orb-1-dark: rgb(99 102 241 / 0.2);
-  --orb-2-dark: rgb(14 165 233 / 0.15);
-  --orb-3-dark: rgb(217 70 239 / 0.12);
 }
 
 /* 正文排版偏好（settings store 运行时覆盖）：字体作用于预览与编辑区，行宽约束内容列宽 */
@@ -26,52 +20,12 @@
 
 /* ============================== 液态玻璃视觉基座 ============================== */
 
-/* 环境光底色：浅色冷灰蓝 / 深色近黑，彩色光晕由 App 内 orb 元素叠加 */
+/* 环境底色：浅色冷灰蓝 / 深色近黑 */
 body {
   background-color: #eef0f7;
 }
 .dark body {
   background-color: #0b0c11;
-}
-
-/* 环境光晕（App.vue 中 aria-hidden 装饰层引用）：缓慢漂移的液态色斑，颜色随主题预设变化 */
-.orb {
-  position: absolute;
-  border-radius: 9999px;
-  filter: blur(72px);
-  will-change: transform;
-  animation: orb-drift 26s ease-in-out infinite alternate;
-}
-.orb-1 {
-  background-color: var(--orb-1);
-}
-.orb-2 {
-  background-color: var(--orb-2);
-}
-.orb-3 {
-  background-color: var(--orb-3);
-}
-.dark .orb-1 {
-  background-color: var(--orb-1-dark);
-}
-.dark .orb-2 {
-  background-color: var(--orb-2-dark);
-}
-.dark .orb-3 {
-  background-color: var(--orb-3-dark);
-}
-@keyframes orb-drift {
-  from {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  to {
-    transform: translate3d(4%, -6%, 0) scale(1.12);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .orb {
-    animation: none;
-  }
 }
 
 /* ============================== 玻璃表面 ============================== */
