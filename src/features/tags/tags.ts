@@ -32,6 +32,9 @@ export interface TagCount {
   count: number
 }
 
+/** 中文拼音序比较器：显式 locale，避免默认 locale 下各平台 CJK 排序不一致（Windows 与 Linux CI 差异曾致测试失败） */
+const tagCollator = new Intl.Collator('zh')
+
 /** 侧边栏标签云（F-202）：统计每张标签上的笔记数，频次降序、同频按名称升序 */
 export function collectTags(notes: Note[]): TagCount[] {
   const counts = new Map<string, TagCount>()
@@ -42,5 +45,5 @@ export function collectTags(notes: Note[]): TagCount[] {
       else counts.set(tag.toLowerCase(), { tag, count: 1 })
     }
   }
-  return [...counts.values()].sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag))
+  return [...counts.values()].sort((a, b) => b.count - a.count || tagCollator.compare(a.tag, b.tag))
 }
