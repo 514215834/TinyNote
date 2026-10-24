@@ -80,4 +80,12 @@ describe('settingsStore 查看模式记忆', () => {
     localStorage.setItem('tinynote:editor-mode', 'bogus')
     expect(useSettingsStore().editorMode).toBe('edit')
   })
+
+  it('环境光晕开关持久化（F-521）', () => {
+    const settings = useSettingsStore()
+    expect(settings.ambientEnabled).toBe(true)
+    settings.ambientEnabled = false
+    setActivePinia(createPinia())
+    expect(useSettingsStore().ambientEnabled).toBe(false)
+  })
 })

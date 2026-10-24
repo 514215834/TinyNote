@@ -9,6 +9,12 @@
 @theme {
   --color-accent: #6366f1;
   --color-accent-strong: #4f46e5;
+  --orb-1: rgb(165 180 252 / 0.42);
+  --orb-2: rgb(125 211 252 / 0.36);
+  --orb-3: rgb(253 164 175 / 0.3);
+  --orb-1-dark: rgb(99 102 241 / 0.2);
+  --orb-2-dark: rgb(14 165 233 / 0.15);
+  --orb-3-dark: rgb(217 70 239 / 0.12);
 }
 
 /* 正文排版偏好（settings store 运行时覆盖）：字体作用于预览与编辑区，行宽约束内容列宽 */
@@ -20,51 +26,132 @@
 
 /* ============================== 液态玻璃视觉基座 ============================== */
 
-/* 环境底色：浅色冷灰蓝 / 深色近黑 */
+/* 环境底色：渐变底 + 低饱和主题色环境光（跟随 --color-accent）。
+ * 光效做在背景层且透明度压低（≤16%），透过玻璃只呈现柔和色温而非亮斑，不干扰正文。 */
 body {
   background-color: #eef0f7;
+  background-image:
+    radial-gradient(56rem 38rem at 4% -6%, color-mix(in oklab, var(--color-accent) 16%, transparent), transparent 68%),
+    radial-gradient(48rem 34rem at 102% 18%, color-mix(in oklab, var(--color-accent) 11%, transparent), transparent 70%),
+    radial-gradient(44rem 30rem at 46% 116%, color-mix(in oklab, var(--color-accent-strong) 8%, transparent), transparent 72%),
+    linear-gradient(180deg, #f1f3fa 0%, #eef0f7 45%, #e8ebf5 100%);
 }
 .dark body {
   background-color: #0b0c11;
+  background-image:
+    radial-gradient(56rem 38rem at 4% -6%, color-mix(in oklab, var(--color-accent) 10%, transparent), transparent 68%),
+    radial-gradient(48rem 34rem at 102% 18%, color-mix(in oklab, var(--color-accent) 7%, transparent), transparent 70%),
+    radial-gradient(44rem 30rem at 46% 116%, color-mix(in oklab, var(--color-accent-strong) 6%, transparent), transparent 72%),
+    linear-gradient(180deg, #0d0f16 0%, #0b0c11 45%, #090a0e 100%);
+}
+
+/* 三色环境光晕（App.vue 装饰层引用，设置面板可关闭）：大半径模糊色斑，缓慢漂移 */
+.orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(72px);
+  will-change: transform;
+  animation: orb-drift 26s ease-in-out infinite alternate;
+}
+.orb-1 {
+  background-color: var(--orb-1);
+}
+.orb-2 {
+  background-color: var(--orb-2);
+}
+.orb-3 {
+  background-color: var(--orb-3);
+}
+.dark .orb-1 {
+  background-color: var(--orb-1-dark);
+}
+.dark .orb-2 {
+  background-color: var(--orb-2-dark);
+}
+.dark .orb-3 {
+  background-color: var(--orb-3-dark);
+}
+@keyframes orb-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(4%, -6%, 0) scale(1.12);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .orb {
+    animation: none;
+  }
 }
 
 /* ============================== 玻璃表面 ============================== */
 
 @layer components {
-  /* 一级表面：顶栏、侧栏、主内容卡——半透明 + 大半径模糊 + 顶部内高光 */
+  /* 一级表面：侧栏、主内容卡——半透明 + 大半径模糊 + 斜向光带 + 顶部内高光 */
   .glass {
+    position: relative;
     background-color: rgb(255 255 255 / 0.55);
+    background-image: linear-gradient(135deg, rgb(255 255 255 / 0.30), rgb(255 255 255 / 0.06) 36%, rgb(255 255 255 / 0) 58%);
     backdrop-filter: blur(24px) saturate(160%);
     -webkit-backdrop-filter: blur(24px) saturate(160%);
-    border: 1px solid rgb(255 255 255 / 0.6);
     box-shadow:
       0 8px 32px rgb(15 23 42 / 0.07),
       inset 0 1px 0 rgb(255 255 255 / 0.65);
   }
   .dark .glass {
     background-color: rgb(23 24 30 / 0.52);
-    border-color: rgb(255 255 255 / 0.08);
+    background-image: linear-gradient(135deg, rgb(255 255 255 / 0.05), rgb(255 255 255 / 0.015) 36%, rgb(255 255 255 / 0) 58%);
     box-shadow:
       0 8px 32px rgb(0 0 0 / 0.4),
       inset 0 1px 0 rgb(255 255 255 / 0.07);
   }
 
-  /* 二级表面：浮层菜单、toast——更实一些保证文字可读 */
+  /* 二级表面：浮层菜单、命令面板、toast——更实一些保证文字可读 */
   .glass-strong {
+    position: relative;
     background-color: rgb(255 255 255 / 0.85);
+    background-image: linear-gradient(150deg, rgb(255 255 255 / 0.5), rgb(255 255 255 / 0) 45%);
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border: 1px solid rgb(255 255 255 / 0.7);
     box-shadow:
       0 12px 40px rgb(15 23 42 / 0.14),
       inset 0 1px 0 rgb(255 255 255 / 0.8);
   }
   .dark .glass-strong {
     background-color: rgb(39 39 44 / 0.88);
-    border-color: rgb(255 255 255 / 0.1);
+    background-image: linear-gradient(150deg, rgb(255 255 255 / 0.07), rgb(255 255 255 / 0) 45%);
     box-shadow:
       0 12px 40px rgb(0 0 0 / 0.5),
       inset 0 1px 0 rgb(255 255 255 / 0.08);
+  }
+
+  /* 边缘光：渐变描边代替纯色 border——左上亮、右下暗的「入射光」观感。
+   * mask content-box + exclude 只留 1px 环；border-radius 跟随宿主圆角。 */
+  .glass::before,
+  .glass-strong::before,
+  .glass-edge::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(160deg, rgb(255 255 255 / 0.85), rgb(255 255 255 / 0.18) 30%, rgb(255 255 255 / 0.06) 55%, rgb(255 255 255 / 0.35));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+  .dark .glass::before,
+  .dark .glass-strong::before,
+  .dark .glass-edge::before {
+    background: linear-gradient(160deg, rgb(255 255 255 / 0.30), rgb(255 255 255 / 0.08) 30%, rgb(255 255 255 / 0.03) 55%, rgb(255 255 255 / 0.12));
+  }
+
+  /* 顶栏等自绘玻璃背景的元素：只叠加边缘光 */
+  .glass-edge {
+    position: relative;
   }
 }
 

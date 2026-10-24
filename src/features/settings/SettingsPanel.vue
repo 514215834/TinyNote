@@ -151,6 +151,31 @@ function setFontSize(delta: number): void {
         </div>
       </section>
 
+      <!-- 外观：环境光晕开关（F-521） -->
+      <section aria-label="环境光晕" class="mb-5">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-xs font-medium text-gray-400">环境光晕</p>
+            <p class="mt-0.5 text-[11px] text-gray-400/80 dark:text-neutral-500">
+              三色光斑透过玻璃形成的环境光，颜色跟随主题色；觉得干扰阅读时可关闭
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            :aria-checked="settings.ambientEnabled"
+            class="relative h-5 w-9 shrink-0 rounded-full transition-colors"
+            :class="settings.ambientEnabled ? 'bg-accent' : 'bg-gray-300 dark:bg-neutral-600'"
+            @click="settings.ambientEnabled = !settings.ambientEnabled"
+          >
+            <span
+              class="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all"
+              :class="settings.ambientEnabled ? 'left-[1.125rem]' : 'left-0.5'"
+            ></span>
+          </button>
+        </div>
+      </section>
+
       <!-- 外观：正文字体 -->
       <section aria-label="正文字体" class="mb-5">
         <p class="mb-2 text-xs font-medium text-gray-400">正文字体</p>

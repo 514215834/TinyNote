@@ -57,15 +57,28 @@ useHotkeys([
 </script>
 
 <template>
-    <!-- 液态玻璃布局：顶栏 / 侧栏 / 主区为三块浮动的磨砂玻璃（纯色底，无背景光晕装饰） -->
-    <div class="relative flex h-dvh flex-col overflow-hidden text-gray-900 dark:text-neutral-100">
+  <!-- 液态玻璃布局：环境光晕打底，顶栏 / 侧栏 / 主区为三块浮动的磨砂玻璃 -->
+  <div class="relative flex h-dvh flex-col overflow-hidden text-gray-900 dark:text-neutral-100">
+    <!-- F-521：三色环境光晕（颜色跟随主题预设，设置面板可关闭） -->
+    <div
+      v-if="settings.ambientEnabled"
+      class="pointer-events-none absolute inset-0 overflow-hidden"
+      aria-hidden="true"
+    >
+      <span class="orb orb-1 left-[-6rem] top-[-8rem] h-[30rem] w-[30rem]"></span>
+      <span class="orb orb-2 right-[-8rem] top-1/4 h-[26rem] w-[26rem]" style="animation-delay: -9s"></span>
+      <span class="orb orb-3 bottom-[-10rem] left-1/3 h-[28rem] w-[28rem]" style="animation-delay: -17s"></span>
+    </div>
+
+    <div class="flex min-h-0 flex-1 flex-col gap-3 p-3">
       <AppHeader />
-    <BackupBanner />
-    <div class="flex min-h-0 flex-1 gap-3 p-3">
-      <NoteListSidebar />
-      <main class="glass min-w-0 flex-1 overflow-hidden rounded-2xl">
-        <RouterView />
-      </main>
+      <BackupBanner class="rounded-xl border" />
+      <div class="flex min-h-0 flex-1 gap-3">
+        <NoteListSidebar />
+        <main class="glass min-w-0 flex-1 overflow-hidden rounded-2xl">
+          <RouterView />
+        </main>
+      </div>
     </div>
     <!-- F-404：检测到新版本 Service Worker 时提示刷新 -->
     <UpdateBanner />

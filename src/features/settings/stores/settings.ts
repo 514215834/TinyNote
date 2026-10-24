@@ -38,6 +38,8 @@ export const useSettingsStore = defineStore('settings', () => {
   const fontFamily = useLocalStorage<FontChoice>('tinynote:font-family', 'system', { flush: 'sync' })
   const previewFontSize = useLocalStorage('tinynote:preview-font-size', 16, { flush: 'sync' })
   const contentWidth = useLocalStorage<ContentWidth>('tinynote:content-width', 'wide', { flush: 'sync' })
+  /** 三色环境光晕开关（设置面板）：关闭后背景只剩低饱和渐变底 */
+  const ambientEnabled = useLocalStorage('tinynote:ambient', true, { flush: 'sync' })
 
   /** 设置面板（AppHeader 齿轮入口）开关 */
   const panelOpen = ref(false)
@@ -60,6 +62,8 @@ export const useSettingsStore = defineStore('settings', () => {
     const root = document.documentElement
     root.style.setProperty('--color-accent', vars.accent)
     root.style.setProperty('--color-accent-strong', vars.accentStrong)
+    vars.orbLight.forEach((color, index) => root.style.setProperty(`--orb-${index + 1}`, color))
+    vars.orbDark.forEach((color, index) => root.style.setProperty(`--orb-${index + 1}-dark`, color))
     root.style.setProperty('--font-content', vars.fontContent)
     root.style.setProperty('--preview-font-size', vars.previewFontSize)
     root.style.setProperty('--content-max-width', vars.contentMaxWidth)
@@ -102,6 +106,7 @@ export const useSettingsStore = defineStore('settings', () => {
     fontFamily,
     previewFontSize,
     contentWidth,
+    ambientEnabled,
     panelOpen,
     openPanel,
     closePanel,
