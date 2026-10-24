@@ -30,7 +30,7 @@ registerDictionary('en', {
   'sidebar.deleteFolder': 'Delete folder',
   'sidebar.folderPlaceholder': 'Folder name, press Enter to create',
   'sidebar.newFolderAria': 'New folder',
-  'sidebar.newFolder': '+ New folder',
+  'sidebar.newFolder': 'New folder',
   'sidebar.tags': 'Tags',
   'sidebar.resultCount': '{n} results',
   'sidebar.noMatch': 'No matching notes',

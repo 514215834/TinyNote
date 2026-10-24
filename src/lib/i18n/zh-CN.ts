@@ -30,7 +30,7 @@ registerDictionary('zh-CN', {
   'sidebar.deleteFolder': '删除文件夹',
   'sidebar.folderPlaceholder': '文件夹名称，回车创建',
   'sidebar.newFolderAria': '新建文件夹',
-  'sidebar.newFolder': '+ 新建文件夹',
+  'sidebar.newFolder': '新建文件夹',
   'sidebar.tags': '标签',
   'sidebar.resultCount': '{n} 条结果',
   'sidebar.noMatch': '没有匹配的笔记',

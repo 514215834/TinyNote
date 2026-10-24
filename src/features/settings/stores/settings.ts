@@ -92,9 +92,10 @@ export const useSettingsStore = defineStore('settings', () => {
     await settingsRepository.set('lastBackupAt', at)
   }
 
-  /** 「暂不提醒」（BackupBanner）：记忆为贪睡时间戳，超过提醒周期后重新提示 */
+  /** 「暂不提醒」（BackupBanner）：立即收起横幅并记忆贪睡时间戳（跨启动同一周期内不再提示） */
   function dismissBackupBanner(now: number = Date.now()): void {
     backupSnoozedAt.value = now
+    backupReminderDue.value = false
   }
 
   return {

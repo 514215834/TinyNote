@@ -22,10 +22,12 @@ describe('settingsStore 备份提醒记忆（F-403）', () => {
     expect(settings.backupReminderDue).toBe(true)
   })
 
-  it('「暂不提醒」写入 localStorage：贪睡期内跨启动不再提醒，满周期重新提醒', async () => {
+  it('「暂不提醒」立即收起横幅并写入 localStorage：贪睡期内跨启动不再提醒，满周期重新提醒', async () => {
     const settings = useSettingsStore()
     await settings.initBackupReminder(NOW)
     settings.dismissBackupBanner(NOW)
+    // v1.0.2：点击后横幅当次会话立即消失（此前只写贪睡戳，横幅停留到下次启动）
+    expect(settings.backupReminderDue).toBe(false)
     expect(localStorage.getItem('tinynote:backup-snoozed-at')).toBe(String(NOW))
 
     // 模拟下次启动：全新 pinia 重建 store，横幅不出现
@@ -45,6 +47,7 @@ describe('settingsStore 备份提醒记忆（F-403）', () => {
     await settings.initBackupReminder(NOW)
     expect(settings.backupReminderDue).toBe(true)
     settings.dismissBackupBanner(NOW)
+    expect(settings.backupReminderDue).toBe(false)
     await settings.initBackupReminder(NOW + 3 * DAY)
     expect(settings.backupReminderDue).toBe(false)
   })
