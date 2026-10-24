@@ -1,4 +1,5 @@
 import type { NoteMeta } from '@/types'
+import { t } from '@/lib/i18n'
 
 /**
  * 列表与删除确认弹窗展示用的标题：优先标题字段，缺失时回退摘要/正文首行，再回退占位文案。
@@ -10,9 +11,9 @@ export function displayTitle(note: { title: string; excerpt?: string; content?: 
   const firstLine = (note.excerpt ?? note.content ?? '')
     .split('\n')
     .map((line) => line.trim())
-    .find((line) => line.length > 0 && line !== '空白笔记')
+    .find((line) => line.length > 0 && line !== t('common.blankNote'))
   if (firstLine) return firstLine.slice(0, 30)
-  return '无标题笔记'
+  return t('common.untitled')
 }
 
 /** 置顶排序（F-203）：置顶笔记在列表最前；入参应已按 updatedAt 倒序，稳定排序保持组内原序 */
@@ -29,6 +30,6 @@ export function makeExcerpt(content: string, max: number = 60): string {
     .replace(/[#>*_~`|-]+/g, ' ') // 常用标记符号
     .replace(/\s+/g, ' ')
     .trim()
-  if (!text) return '空白笔记'
+  if (!text) return t('common.blankNote')
   return text.length > max ? `${text.slice(0, max)}…` : text
 }

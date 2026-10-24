@@ -33,7 +33,8 @@ TinyNote 是一个**部署在 GitHub Pages 上的本地优先（local-first）Ma
 | 代码编辑器 | 阶段一：受控 `textarea`（v0.1–v0.2）；阶段二升级 **vue-codemirror（CodeMirror 6）**，v0.3 已落地 | MVP 快速交付；CodeMirror 6 模块化、移动端友好、语法高亮可扩展，是迭代终态 | Monaco（桌面级体积，不适合移动场景） |
 | 样式 | **Tailwind CSS 4 + @tailwindcss/typography** | 迭代 UI 速度最快；typography 插件直接给 Markdown 预览提供排版 | CSS Modules |
 | PWA | **vite-plugin-pwa**（Workbox，v0.4 已落地） | 一套配置获得离线缓存 + 桌面安装（纯 Web/PWA 形态，不做 Electron/Tauri 打包） | 手写 Service Worker |
-| 搜索 | 元数据（标题/标签/摘要）内存过滤 + 正文 Dexie 游标流式扫描（F-524）；倒排索引（MiniSearch + 中文 n-gram）在笔记 >5000 篇或 contents >50MB 时再切换 | 流式扫描不把正文载入内存；防抖 200ms + 陈旧查询 tx.abort() 中止 + 查询结果 LRU 缓存 | FlexSearch |
+| 搜索 | 元数据（标题/标签/摘要）内存过滤 + 正文双引擎（F-524/F-604）：小库走 Dexie 游标流式扫描，**笔记 ≥5000 篇自动切换 MiniSearch 倒排索引**（拉丁整词 + CJK 单字分词；空闲构建 + 增量维护 + 构建期回退流式扫描） | 流式扫描不把正文载入内存；防抖 200ms + 陈旧查询 tx.abort() 中止 + 查询结果 LRU 缓存；索引为可重建的内存派生数据 | FlexSearch |
+| i18n | **自研轻量层**（`lib/i18n`，F-601）：zh-CN 源语言字典 + en 翻译字典，`t()` 响应式取词 + 占位符插值 + 三级回退；字典齐平与使用中 key 静态扫描由单测保证 | 仅两条字典 + 一个函数，不引入 vue-i18n 的运行时复杂度；语言偏好存 localStorage | vue-i18n |
 | 单元测试 | **Vitest + @vue/test-utils（happy-dom）+ fake-indexeddb** | 与 Vite 共享配置；fake-indexeddb 让存储层测试跑真实 Dexie 代码路径 | Jest |
 | E2E 测试 | **Playwright** | 跨浏览器、自动等待、CI 友好 | Cypress |
 | 类型检查 | **vue-tsc** | 覆盖 SFC 模板的类型检查，作为构建前置步骤 | — |
@@ -223,6 +224,7 @@ db.version(4).stores({
 | ADR-008 | 回收站索引 | 不索引 `trashed` 布尔字段（IndexedDB 键不支持 boolean/null），改用 `trashedAt` 数值索引表达"回收站全集"（见 4.2） |
 | ADR-009 | 正文分离 | **notes 表只存元数据（NoteMeta），正文拆入 contents 表按需读取**（v0.5/F-523）。列表/启动内存与笔记总量脱钩，单篇超大笔记不再拖慢全局；代价是保存写两表（单事务）与备份导出 join。备份格式 schemaVersion 2 保持不变 |
 | ADR-010 | 同步路线落地 | **全量载荷 + 基线指纹三方合并**（v0.6/F-501～F-503）：全部数据存单个 secret Gist 文件（SyncFile schemaVersion 1，JSON + 附件 base64）；以上次同步成功的状态指纹（settings KV `syncBaseline`）做三方判定，双侧都改时 `updatedAt` LWW、落败方保留为冲突副本，修改优先于删除，快照不参与同步；可选 AES-GCM（PBKDF2 600k 轮）端到端加密。首次同步无基线退化为纯 LWW（UI 提示先备份）。不自建服务器的承诺不变，PAT 仅存本机 |
+| ADR-011 | 扩展点评估（v1.0/F-605） | **两个稳定扩展缝 + 数据层天然可替换**：① 命令注册表（`useCommandRegistry`，F-603 落地）——命令面板动作全部来自注册表，`register/unregister` 即插件挂载/卸载接口，重复 id 覆盖支持热更新；② 编辑器扩展组（`editor/setup.ts`）——CodeMirror 扩展集中装配，插件化只需在该层追加；③ 数据层经 Repository/Port 接口可替换（存储引擎、同步端点）。**运行时第三方插件加载器明确不做**（安装来源/沙箱/版本协商/API 稳定性承诺成本高，等社区需求立项）。i18n 字典（`lib/i18n`）按语言注册，同样是受控扩展面 |
 
 ## 6. 目录结构
 
@@ -246,6 +248,9 @@ tinynote/
 │   │   ├── tags/                #   （v0.2）标签解析/统计纯函数
 │   │   ├── trash/               #   （v0.2）trash.ts（30 天清理口径）+ TrashView
 │   │   ├── search/             #   search.ts（纯过滤函数）+ highlight.ts + stores/search.ts
+│   │   │   ├── engine.ts                  # 正文流式扫描（Dexie 游标，F-524）
+│   │   │   └── searchIndex.ts             # MiniSearch 倒排索引（≥5000 篇自动切换，F-604）
+│   │   ├── commands/           #   （v1.0 已落地）registry.ts 命令注册表（F-603/F-605 扩展点，ADR-011）
 │   │   ├── editor/             #   （v0.3 已落地）NoteCodeEditor.vue（CodeMirror 封装）+ setup.ts（扩展组）
 │   │   │   ├── attachments.ts             # 粘贴/拖入纯函数（准入/引用/插入/孤儿判定）
 │   │   │   └── stores/attachments.ts      # 附件 blob URL 生命周期 + 孤儿清理（F-406）
@@ -261,8 +266,10 @@ tinynote/
 │   ├── composables/            # 跨功能组合式函数
 │   ├── lib/
 │   │   ├── db/                 # db.ts（Dexie + schema 迁移）+ repositories/
+│   │   ├── i18n/               # （v1.0 已落地）index.ts（t()/locale）+ registry.ts + zh-CN.ts + en.ts（F-601）
 │   │   ├── markdown/render.ts  # markdown-it 管线（html:false、外链加固、hljs）
-│   │   └── utils/              # id、time 等
+│   │   ├── perf.ts             # 启动预算打点（F-604）
+│   │   └── utils/              # id、time、base64 等
 │   └── __tests__/              # 单测（与被测代码同栈：vitest + fake-indexeddb）
 ├── .github/workflows/deploy.yml
 ├── vite.config.ts
@@ -337,9 +344,10 @@ jobs:
 | 主题 | 策略 |
 | --- | --- |
 | 自动保存 | 输入防抖 800ms 后写库 + 失焦立即保存 + `beforeunload`/`pagehide` 尽力 flush，杜绝"写了没存" |
-| 搜索性能 | 输入防抖 200ms（`watchDebounced`）；元数据内存过滤 + 正文游标流式扫描（F-524），笔记量 >5000 或 contents >50MB 后切换 MiniSearch 倒排索引 |
+| 搜索性能 | 输入防抖 200ms（`watchDebounced`）；元数据内存过滤 + 正文双引擎（F-524/F-604）：流式扫描（小库）或 MiniSearch 倒排索引（≥5000 篇自动切换，空闲构建 + 增量维护 + 构建期回退） |
 | 大文本编辑 | 预览渲染/大纲/字数统计 250ms 防抖（F-523）；正文分离后启动与列表不加载正文；快照/保存仍为全文写（IndexedDB 无增量更新） |
-| 长列表 | 列表项超过阈值（约 200 条可视）后引入虚拟滚动（`@tanstack/vue-virtual`） |
+| 长列表 | 侧栏笔记列表超过 300 条启用 `@tanstack/vue-virtual` 动态测量虚拟滚动（F-604），之下普通渲染，两态共用行标记 |
+| 启动预算 | F-604：`performance.mark/measure` 打点（模块求值 → 挂载 → 列表就绪）输出控制台；持久化申请/自动同步/索引构建全部让路首屏（异步/空闲），目标首屏 < 1.5s |
 | 大文档 | 编辑器升级 CodeMirror 6 后，十万字符级文档流畅渲染；预览侧超长文档分块渲染 |
 | XSS | markdown-it `html: false`（ADR-006）：Markdown 中的 HTML 标签一律按纯文本展示；`v-html` 全项目仅 Markdown 渲染一处插口；外链统一 `target="_blank"` + `rel="noopener noreferrer"`；附件图片（v0.3）只把 `tinynote-attachment://<id>` 替换为本地 blob URL（id 不进入属性，命中未映射时输出固定占位文案） |
 | 隐私 | 无任何第三方统计/字体 CDN；数据不出浏览器。Gist 同步为用户显式开启并提供自己的 PAT，PAT 只存本机 localStorage |

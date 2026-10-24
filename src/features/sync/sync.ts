@@ -3,6 +3,7 @@ import { createId } from '@/lib/utils/id'
 import { base64ToBlob, blobToBase64 } from '@/lib/utils/base64'
 import { attachmentRef, extractAttachmentIds } from '@/lib/markdown/attachmentRef'
 import { displayTitle } from '@/features/notes/notes'
+import { t } from '@/lib/i18n'
 
 /**
  * 同步领域层（F-501/F-502，v0.6）：GitHub Gist 全量同步的纯函数核心。
@@ -97,7 +98,7 @@ export interface SyncMergeResult {
 
 /** 载荷缺失/非法：format 不匹配等结构问题 */
 export class SyncFormatError extends Error {
-  constructor(message = '不是有效的 TinyNote 同步数据') {
+  constructor(message = t('sync.invalidData')) {
     super(message)
     this.name = 'SyncFormatError'
   }
@@ -128,7 +129,7 @@ export function parseSyncFile(raw: unknown): SyncFile {
   }
   if (version > CURRENT_SYNC_VERSION) {
     throw new SyncVersionError(
-      `同步数据 schemaVersion ${version} 高于当前支持的 ${CURRENT_SYNC_VERSION}，请先升级应用`,
+      t('sync.versionTooNew', { version, current: CURRENT_SYNC_VERSION }),
       version,
     )
   }
@@ -354,7 +355,12 @@ export function mergeSync(input: SyncMergeInput): SyncMergeResult {
     if (ln!.updatedAt >= rn!.updatedAt) {
       keep(ln!)
       stats.uploaded++
-      const copy = makeConflictCopy(rn!, remote?.deviceName || '其他设备', remoteAttachmentsByNote, now)
+      const copy = makeConflictCopy(
+        rn!,
+        remote?.deviceName || t('common.unknownDevice'),
+        remoteAttachmentsByNote,
+        now,
+      )
       mergedNotes.push(copy.note)
       addedAttachments.push(...copy.attachments)
     } else {
@@ -430,7 +436,7 @@ function makeConflictCopy(
   return {
     note: {
       id,
-      title: `${displayTitle(loser)}（冲突@${originDeviceName}）`,
+      title: t('sync.conflictCopyTitle', { title: displayTitle(loser), device: originDeviceName }),
       content,
       folderId: loser.folderId,
       tags: [...loser.tags],
@@ -498,16 +504,10 @@ function groupByNote(attachments: Attachment[]): Map<string, Attachment[]> {
 
 /** 新设备的默认名（可改）：从 UA 粗提平台 */
 export function defaultDeviceName(ua: string = typeof navigator === 'undefined' ? '' : navigator.userAgent): string {
-  const os = /Windows/i.test(ua)
-    ? 'Windows'
-    : /Mac OS X|Macintosh/i.test(ua)
-      ? 'Mac'
-      : /Android/i.test(ua)
-        ? 'Android'
-        : /iPhone|iPad|iOS/i.test(ua)
-          ? 'iOS'
-          : /Linux/i.test(ua)
-            ? 'Linux'
-            : '我的'
-  return `${os}设备`
+  if (/Windows/i.test(ua)) return t('sync.deviceWindows')
+  if (/Mac OS X|Macintosh/i.test(ua)) return t('sync.deviceMac')
+  if (/Android/i.test(ua)) return t('sync.deviceAndroid')
+  if (/iPhone|iPad|iOS/i.test(ua)) return t('sync.deviceIOS')
+  if (/Linux/i.test(ua)) return t('sync.deviceLinux')
+  return t('sync.deviceFallback')
 }

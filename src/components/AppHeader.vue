@@ -2,6 +2,7 @@
 import { ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { useEventListener } from '@vueuse/core'
+import { t } from '@/lib/i18n'
 import { useSettingsStore } from '@/features/settings/stores/settings'
 import { useBackup } from '@/features/backup/useBackup'
 import { BackupFormatError, BackupVersionError } from '@/features/backup/backup'
@@ -39,7 +40,7 @@ async function exportBackup(): Promise<void> {
   try {
     await exportBackupZip()
   } catch (error) {
-    window.alert(`导出失败：${error instanceof Error ? error.message : String(error)}`)
+    window.alert(t('header.exportFailed', { msg: error instanceof Error ? error.message : String(error) }))
   }
 }
 
@@ -48,7 +49,7 @@ async function exportNotes(): Promise<void> {
   try {
     await exportNotesZip()
   } catch (error) {
-    window.alert(`导出失败：${error instanceof Error ? error.message : String(error)}`)
+    window.alert(t('header.exportFailed', { msg: error instanceof Error ? error.message : String(error) }))
   }
 }
 
@@ -62,16 +63,16 @@ async function onImportFileChange(event: Event): Promise<void> {
   const file = input.files?.[0]
   input.value = '' // 允许连续选择同一文件重新导入
   if (!file) return
-  const confirmed = window.confirm(
-    '导入备份将覆盖当前全部笔记、文件夹与附件，且不可撤销。\n建议先「导出全量备份」留存当前数据。确定继续？',
-  )
+  const confirmed = window.confirm(t('header.importConfirm'))
   if (!confirmed) return
   try {
     const result = await importBackupFile(file)
     // 覆盖式恢复后，所有正在展示的列表与选中态一并刷新
     await notesStore.reload()
     await foldersStore.init()
-    window.alert(`恢复完成：${result.notes} 篇笔记、${result.folders} 个文件夹、${result.attachments} 个附件。`)
+    window.alert(
+      t('header.restoreDone', { notes: result.notes, folders: result.folders, attachments: result.attachments }),
+    )
     if (router.currentRoute.value.name === 'trash') await router.push({ name: 'notes' })
   } catch (error) {
     window.alert(importErrorMessage(error))
@@ -79,10 +80,10 @@ async function onImportFileChange(event: Event): Promise<void> {
 }
 
 function importErrorMessage(error: unknown): string {
-  if (error instanceof BackupFormatError) return '导入失败：不是有效的 TinyNote 备份文件（需要本应用导出的 zip 或 JSON）'
-  if (error instanceof BackupVersionError) return `导入失败：${error.message}`
-  if (error instanceof Error) return `导入失败：${error.message}`
-  return '导入失败'
+  if (error instanceof BackupFormatError) return t('header.importInvalid')
+  if (error instanceof BackupVersionError) return t('header.importFailed', { msg: error.message })
+  if (error instanceof Error) return t('header.importFailed', { msg: error.message })
+  return t('header.importFailedGeneric')
 }
 </script>
 
@@ -100,8 +101,8 @@ function importErrorMessage(error: unknown): string {
           type="button"
           class="rounded-lg p-2 text-gray-500 transition-colors hover:bg-white/70 hover:text-gray-800 dark:text-neutral-400 dark:hover:bg-white/10 dark:hover:text-neutral-100"
           :class="{ 'bg-white/70 text-gray-900 dark:bg-white/10 dark:text-neutral-100': menuOpen }"
-          title="数据：备份导出 / 导入"
-          aria-label="数据菜单"
+          :title="t('header.dataTitle')"
+          :aria-label="t('header.dataAria')"
           aria-haspopup="menu"
           @click="toggleMenu"
         >
@@ -134,8 +135,8 @@ function importErrorMessage(error: unknown): string {
             :disabled="busy"
             @click="exportBackup"
           >
-            <span class="block font-medium text-gray-700 dark:text-neutral-200">导出全量备份</span>
-            <span class="block text-[11px] text-gray-400">.zip（含笔记 / 附件，可还原）</span>
+            <span class="block font-medium text-gray-700 dark:text-neutral-200">{{ t('header.exportBackup') }}</span>
+            <span class="block text-[11px] text-gray-400">{{ t('header.exportBackupDesc') }}</span>
           </button>
           <button
             type="button"
@@ -144,8 +145,8 @@ function importErrorMessage(error: unknown): string {
             :disabled="busy"
             @click="pickImportFile"
           >
-            <span class="block font-medium text-gray-700 dark:text-neutral-200">导入备份</span>
-            <span class="block text-[11px] text-gray-400">覆盖恢复，导入前会确认</span>
+            <span class="block font-medium text-gray-700 dark:text-neutral-200">{{ t('header.importBackup') }}</span>
+            <span class="block text-[11px] text-gray-400">{{ t('header.importBackupDesc') }}</span>
           </button>
           <button
             type="button"
@@ -154,8 +155,8 @@ function importErrorMessage(error: unknown): string {
             :disabled="busy"
             @click="exportNotes"
           >
-            <span class="block font-medium text-gray-700 dark:text-neutral-200">导出全部笔记</span>
-            <span class="block text-[11px] text-gray-400">.md zip（不含附件，通用可读）</span>
+            <span class="block font-medium text-gray-700 dark:text-neutral-200">{{ t('header.exportNotes') }}</span>
+            <span class="block text-[11px] text-gray-400">{{ t('header.exportNotesDesc') }}</span>
           </button>
         </div>
         <input
@@ -163,7 +164,7 @@ function importErrorMessage(error: unknown): string {
           type="file"
           accept=".zip,.json,application/zip,application/json"
           class="hidden"
-          aria-label="选择备份文件"
+          :aria-label="t('header.fileAria')"
           @change="onImportFileChange"
         />
       </div>
@@ -173,8 +174,8 @@ function importErrorMessage(error: unknown): string {
         type="button"
         class="rounded-lg p-2 text-gray-500 transition-colors hover:bg-white/70 hover:text-gray-800 dark:text-neutral-400 dark:hover:bg-white/10 dark:hover:text-neutral-100"
         :class="{ 'bg-white/70 text-gray-900 dark:bg-white/10 dark:text-neutral-100': settings.panelOpen }"
-        title="设置：外观与缓存"
-        aria-label="设置"
+        :title="t('header.settingsTitle')"
+        :aria-label="t('header.settingsAria')"
         @click="settings.openPanel()"
       >
         <svg
@@ -196,8 +197,8 @@ function importErrorMessage(error: unknown): string {
       <button
         type="button"
         class="rounded-lg p-2 text-gray-500 transition-colors hover:bg-white/70 hover:text-gray-800 dark:text-neutral-400 dark:hover:bg-white/10 dark:hover:text-neutral-100"
-        :title="settings.isDark ? '切换到浅色模式' : '切换到深色模式'"
-        :aria-label="settings.isDark ? '切换到浅色模式' : '切换到深色模式'"
+        :title="settings.isDark ? t('header.toLight') : t('header.toDark')"
+        :aria-label="settings.isDark ? t('header.toLight') : t('header.toDark')"
         @click="settings.toggleTheme()"
       >
         <svg

@@ -1,3 +1,4 @@
+import { t } from '@/lib/i18n'
 import { SYNC_FORMAT, type SyncFile } from './sync'
 
 /**
@@ -40,18 +41,18 @@ async function request(pat: string, url: string, init: RequestInit): Promise<Res
     })
   } catch (error) {
     if (error instanceof DOMException && error.name === 'TimeoutError') {
-      throw new GistError('连接 GitHub 超时，请检查网络后重试')
+      throw new GistError(t('sync.gistTimeout'))
     }
-    throw new GistError('无法连接 GitHub，请检查网络后重试')
+    throw new GistError(t('sync.gistNetworkError'))
   }
   if (response.status === 401 || response.status === 403) {
-    throw new GistError('GitHub 拒绝了访问：请确认令牌有效且具备 gist 权限', response.status)
+    throw new GistError(t('sync.gistAuth'), response.status)
   }
   if (response.status === 404) {
-    throw new GistError('找不到同步 Gist（可能已被删除，或令牌无权访问）', 404)
+    throw new GistError(t('sync.gistNotFound'), 404)
   }
   if (!response.ok) {
-    throw new GistError(`GitHub 请求失败（HTTP ${response.status}）`, response.status)
+    throw new GistError(t('sync.gistHttpError', { status: response.status }), response.status)
   }
   return response
 }
@@ -75,13 +76,13 @@ export async function createSyncGist(pat: string, payloadJson: string): Promise<
   const response = await request(pat, GIST_API, {
     method: 'POST',
     body: JSON.stringify({
-      description: 'TinyNote 同步数据（勿手动编辑）',
+      description: t('sync.gistDescription'),
       public: false,
       files: { [GIST_FILENAME]: { content: payloadJson } },
     }),
   })
   const body = (await response.json()) as { id?: unknown }
-  if (typeof body.id !== 'string' || body.id === '') throw new GistError('GitHub 返回的 Gist id 无效')
+  if (typeof body.id !== 'string' || body.id === '') throw new GistError(t('sync.gistBadId'))
   return body.id
 }
 

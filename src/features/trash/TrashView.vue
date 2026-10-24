@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import { t } from '@/lib/i18n'
 import { useNotesStore } from '@/features/notes/stores/notes'
 import { displayTitle } from '@/features/notes/notes'
 import { formatDateTime, formatRelativeTime } from '@/lib/utils/time'
@@ -13,12 +14,12 @@ async function restore(id: string): Promise<void> {
 }
 
 function removeForever(id: string, title: string): void {
-  if (window.confirm(`彻底删除「${title}」？此操作不可恢复。`)) void notesStore.deleteForever(id)
+  if (window.confirm(t('trash.deleteForeverConfirm', { title }))) void notesStore.deleteForever(id)
 }
 
 function emptyTrash(): void {
   if (notesStore.trashedNotes.length === 0) return
-  if (window.confirm('清空回收站？其中所有笔记将被彻底删除。')) void notesStore.emptyTrash()
+  if (window.confirm(t('trash.emptyConfirm'))) void notesStore.emptyTrash()
 }
 </script>
 
@@ -29,8 +30,8 @@ function emptyTrash(): void {
     >
       <button
         type="button"
-        aria-label="返回笔记"
-        title="返回笔记"
+        :aria-label="t('trash.back')"
+        :title="t('trash.back')"
         class="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-white/60 dark:text-neutral-400 dark:hover:bg-white/8"
         @click="router.push({ name: 'notes' })"
       >
@@ -48,15 +49,15 @@ function emptyTrash(): void {
           <path d="m12 19-7-7 7-7" /><path d="M19 12H5" />
         </svg>
       </button>
-      <h1 class="text-base font-semibold">回收站</h1>
-      <span class="text-xs text-gray-400">{{ notesStore.trashedNotes.length }} 条</span>
+      <h1 class="text-base font-semibold">{{ t('sidebar.trash') }}</h1>
+      <span class="text-xs text-gray-400">{{ t('trash.count', { n: notesStore.trashedNotes.length }) }}</span>
       <button
         type="button"
         class="ml-auto rounded-full border border-gray-900/10 bg-white/60 px-3.5 py-1.5 text-xs text-gray-600 transition-colors hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-white/5 dark:text-neutral-300 dark:hover:bg-white/10"
         :disabled="notesStore.trashedNotes.length === 0"
         @click="emptyTrash"
       >
-        清空回收站
+        {{ t('trash.emptyButton') }}
       </button>
     </header>
     <div class="min-h-0 flex-1 overflow-y-auto px-6 py-4">
@@ -64,7 +65,7 @@ function emptyTrash(): void {
         v-if="notesStore.trashedNotes.length === 0"
         class="py-16 text-center text-sm text-gray-400 dark:text-neutral-500"
       >
-        回收站是空的
+        {{ t('trash.empty') }}
       </p>
       <ul v-else class="space-y-1">
         <li
@@ -75,7 +76,7 @@ function emptyTrash(): void {
           <div class="min-w-0 flex-1">
             <p class="truncate text-sm font-medium">{{ displayTitle(note) }}</p>
             <p class="mt-0.5 text-xs text-gray-400 dark:text-neutral-500">
-              删除于 {{ formatRelativeTime(note.trashedAt ?? note.updatedAt) }} ·
+              {{ t('trash.deletedAt', { time: formatRelativeTime(note.trashedAt ?? note.updatedAt) }) }} ·
               {{ formatDateTime(note.trashedAt ?? note.updatedAt) }}
             </p>
           </div>
@@ -84,14 +85,14 @@ function emptyTrash(): void {
             class="shrink-0 rounded-full border border-gray-900/10 bg-white/60 px-3 py-1 text-xs transition-colors hover:bg-white/95 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
             @click="restore(note.id)"
           >
-            恢复
+            {{ t('common.restore') }}
           </button>
           <button
             type="button"
             class="shrink-0 rounded-full border border-red-500/25 bg-red-500/5 px-3 py-1 text-xs text-red-500 transition-colors hover:bg-red-500/12 dark:border-red-400/25 dark:hover:bg-red-400/10"
             @click="removeForever(note.id, displayTitle(note))"
           >
-            彻底删除
+            {{ t('trash.deleteForever') }}
           </button>
         </li>
       </ul>
