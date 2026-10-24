@@ -1,18 +1,20 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { rankContentHits, scanContents, type ContentHit } from '../engine'
+import { contentHitsFromIndex, indexModeActive, isIndexReady } from '../searchIndex'
 import { useNotesStore } from '@/features/notes/stores/notes'
 
 /**
- * 搜索 store（F-105/F-524）：侧边栏搜索框与 Ctrl+K 命令面板共用的全局搜索状态。
- * query 为唯一搜索词来源（两处输入互相同步）；正文命中由 runQuery 异步扫描补充，
- * 防抖由调用方（组件层 watchDebounced 200ms，架构文档 §8）负责，本 store 负责取消与缓存。
+ * 搜索 store（F-105/F-524/F-604）：侧边栏搜索框与 Ctrl+K 命令面板共用的全局搜索状态。
+ * query 为唯一搜索词来源（两处输入互相同步）；正文命中由 runQuery 异步补充——
+ * 笔记数达到阈值且索引就绪走倒排索引（F-604），否则流式扫描；防抖由调用方
+ * （组件层 watchDebounced 200ms，架构文档 §8）负责，本 store 负责取消与缓存。
  */
 export const useSearchStore = defineStore('search', () => {
   const query = ref('')
   /** Ctrl+K 命令面板开关 */
   const paletteOpen = ref(false)
-  /** 正文命中（异步扫描产出，按最近更新优先排序） */
+  /** 正文命中（异步扫描/索引查询产出，按最近更新优先排序） */
   const contentHits = ref<ContentHit[]>([])
   /** 扫描进行中（面板可显示扫描态） */
   const scanning = ref(false)
@@ -41,13 +43,17 @@ export const useSearchStore = defineStore('search', () => {
       return
     }
     scanning.value = true
-    // 陈旧查询（期间已有新查询接管）通过取消钩子提前中止扫描
-    const hits = await scanContents(q, {}, () => id !== runId)
+    const notesStore = useNotesStore()
+    const metaById = new Map(notesStore.notes.map((note) => [note.id, note]))
+    // F-604：达阈值且索引就绪走倒排索引（未就绪/未达阈值回退流式扫描，无功能空窗）；
+    // 索引路径自身很快，不取消费用；流式路径陈旧查询经取消钩子提前中止
+    const indexed = indexModeActive(notesStore.notes.length) && isIndexReady()
+    const hits = indexed
+      ? await contentHitsFromIndex(q, 30)
+      : await scanContents(q, {}, () => id !== runId)
     if (id !== runId) return // 已有更新的查询，丢弃本次结果
     scanning.value = false
     // 展示按最近更新优先（扫描按存储序产出）
-    const notesStore = useNotesStore()
-    const metaById = new Map(notesStore.notes.map((note) => [note.id, note]))
     const ranked = rankContentHits(hits, metaById)
     cache.set(q, ranked)
     if (cache.size > 5) {

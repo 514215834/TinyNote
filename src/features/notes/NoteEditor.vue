@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import { useEventListener, watchDebounced } from '@vueuse/core'
 import type { EditorView } from '@codemirror/view'
 import type { NoteMeta } from '@/types'
+import { t } from '@/lib/i18n'
 import { renderMarkdown } from '@/lib/markdown/render'
 import { extractHeadings } from '@/lib/markdown/outline'
 import { useAutoSave } from './composables/useAutoSave'
@@ -28,10 +29,10 @@ const attachmentsStore = useAttachmentsStore()
 const historyStore = useHistoryStore()
 const backup = useBackup()
 
-const modes: { value: EditorViewMode; label: string }[] = [
-  { value: 'edit', label: '编辑' },
-  { value: 'split', label: '分栏' },
-  { value: 'preview', label: '预览' },
+const modes: { value: EditorViewMode; labelKey: string }[] = [
+  { value: 'edit', labelKey: 'editor.modeEdit' },
+  { value: 'split', labelKey: 'editor.modeSplit' },
+  { value: 'preview', labelKey: 'editor.modePreview' },
 ]
 
 // 查看模式持久化在 settings（localStorage）：重启与切换笔记后保持上次选择
@@ -140,11 +141,11 @@ function scrollToHeading(id: string): void {
 const statusText = computed(() => {
   switch (status.value) {
     case 'saving':
-      return '保存中…'
+      return t('editor.saving')
     case 'saved':
-      return '已保存'
+      return t('editor.saved')
     case 'error':
-      return '保存失败'
+      return t('editor.saveFailed')
     default:
       return ''
   }
@@ -240,9 +241,7 @@ function onManualSnapshot(): void {
 async function onRestoreSnapshot(snapshotId: string): Promise<void> {
   const snapshot = historyStore.snapshotOf(props.note.id, snapshotId)
   if (!snapshot) return
-  const confirmed = window.confirm(
-    `恢复到 ${formatDateTime(snapshot.createdAt)} 的版本？\n当前内容会先自动存为一条快照，可随时再恢复回来。`,
-  )
+  const confirmed = window.confirm(t('editor.restoreConfirm', { time: formatDateTime(snapshot.createdAt) }))
   if (!confirmed) return
   await flush()
   // 当前草稿随调用传入（F-523：store 元数据不含正文）
@@ -279,8 +278,8 @@ const stats = computed(() => ({ words: countWords(statsSource.value), chars: cou
       <input
         ref="titleInput"
         v-model="title"
-        placeholder="无标题笔记"
-        aria-label="笔记标题"
+        :placeholder="t('common.untitled')"
+        :aria-label="t('editor.titleAria')"
         class="min-w-0 flex-1 bg-transparent text-lg font-semibold outline-none placeholder:text-gray-400 dark:placeholder:text-neutral-600"
         @blur="flush()"
       />
@@ -288,8 +287,8 @@ const stats = computed(() => ({ words: countWords(statsSource.value), chars: cou
         type="button"
         class="shrink-0 rounded-lg p-2 text-gray-400 transition-colors hover:bg-white/60 hover:text-amber-500 dark:text-neutral-500 dark:hover:bg-white/8"
         :class="{ 'text-amber-500': props.note.pinned }"
-        :title="props.note.pinned ? '取消置顶' : '置顶'"
-        :aria-label="props.note.pinned ? '取消置顶' : '置顶'"
+        :title="props.note.pinned ? t('common.unpin') : t('common.pin')"
+        :aria-label="props.note.pinned ? t('common.unpin') : t('common.pin')"
         @click="togglePin"
       >
         <svg
@@ -312,8 +311,8 @@ const stats = computed(() => ({ words: countWords(statsSource.value), chars: cou
       <button
         type="button"
         class="shrink-0 rounded-lg p-2 text-gray-400 transition-colors hover:bg-white/60 hover:text-gray-700 dark:text-neutral-500 dark:hover:bg-white/8 dark:hover:text-neutral-200"
-        title="导出单篇 Markdown"
-        aria-label="导出单篇 Markdown"
+        :title="t('editor.exportMd')"
+        :aria-label="t('editor.exportMd')"
         @click="exportCurrentNote"
       >
         <svg
@@ -337,8 +336,8 @@ const stats = computed(() => ({ words: countWords(statsSource.value), chars: cou
         type="button"
         class="shrink-0 rounded-lg p-2 text-gray-400 transition-colors hover:bg-white/60 hover:text-gray-700 dark:text-neutral-500 dark:hover:bg-white/8 dark:hover:text-neutral-200"
         :class="{ 'bg-white/70 text-gray-900 dark:bg-white/10 dark:text-neutral-100': historyOpen }"
-        :title="historyOpen ? '关闭历史版本' : '历史版本'"
-        :aria-label="historyOpen ? '关闭历史版本' : '历史版本'"
+        :title="historyOpen ? t('editor.closeHistory') : t('editor.history')"
+        :aria-label="historyOpen ? t('editor.closeHistory') : t('editor.history')"
         @click="historyOpen = !historyOpen"
       >
         <svg
@@ -372,7 +371,7 @@ const stats = computed(() => ({ words: countWords(statsSource.value), chars: cou
           class="rounded-full px-3 py-1 transition-colors"
           @click="mode = m.value"
         >
-          {{ m.label }}
+          {{ t(m.labelKey) }}
         </button>
       </div>
       <span class="w-16 shrink-0 text-right text-xs text-gray-400 dark:text-neutral-500">
@@ -391,7 +390,7 @@ const stats = computed(() => ({ words: countWords(statsSource.value), chars: cou
         {{ tag }}
         <button
           type="button"
-          :aria-label="`移除标签 ${tag}`"
+          :aria-label="t('editor.removeTagAria', { tag })"
           class="text-gray-400 hover:text-red-500 dark:text-neutral-500"
           @click="removeNoteTag(tag)"
         >
@@ -400,8 +399,8 @@ const stats = computed(() => ({ words: countWords(statsSource.value), chars: cou
       </span>
       <input
         v-model="tagDraft"
-        placeholder="添加标签，回车确认"
-        aria-label="添加标签"
+        :placeholder="t('editor.tagPlaceholder')"
+        :aria-label="t('editor.tagAria')"
         class="min-w-32 flex-1 bg-transparent text-xs outline-none placeholder:text-gray-400 dark:placeholder:text-neutral-600"
         @keydown.enter.prevent="commitTagInput"
         @blur="commitTagInput"
@@ -455,7 +454,7 @@ const stats = computed(() => ({ words: countWords(statsSource.value), chars: cou
           aria-label="大纲"
           class="w-56 shrink-0 overflow-y-auto border-l border-gray-900/8 bg-white/25 py-4 dark:border-white/8 dark:bg-white/[0.03]"
         >
-          <p class="px-4 pb-2 text-[11px] font-medium text-gray-400">大纲</p>
+          <p class="px-4 pb-2 text-[11px] font-medium text-gray-400">{{ t('editor.outline') }}</p>
           <ul class="space-y-0.5">
             <li v-for="heading in headings" :key="heading.id">
               <button
@@ -484,21 +483,20 @@ const stats = computed(() => ({ words: countWords(statsSource.value), chars: cou
       class="flex shrink-0 items-center justify-between border-t border-gray-900/8 px-6 py-1.5 text-xs text-gray-500 dark:border-white/8 dark:text-neutral-400"
     >
       <span class="flex items-center gap-4">
-        <span>共 {{ stats.words }} 字 · {{ stats.chars }} 字符</span>
+        <span>{{ t('editor.wordCount', { words: stats.words, chars: stats.chars }) }}</span>
         <button
           type="button"
           class="transition-colors hover:text-gray-800 dark:hover:text-neutral-200"
           :class="{ 'text-gray-800 dark:text-neutral-100': settings.editorLineNumbers }"
-          :title="settings.editorLineNumbers ? '隐藏行号' : '显示行号'"
-          :aria-label="settings.editorLineNumbers ? '隐藏行号' : '显示行号'"
+          :title="settings.editorLineNumbers ? t('editor.hideLineNumbers') : t('editor.showLineNumbers')"
+          :aria-label="settings.editorLineNumbers ? t('editor.hideLineNumbers') : t('editor.showLineNumbers')"
           @click="settings.toggleEditorLineNumbers()"
         >
-          行号
+          {{ t('editor.lineNumbers') }}
         </button>
       </span>
       <span>
-        创建于 {{ formatDateTime(props.note.createdAt) }} ·
-        更新于 {{ formatRelativeTime(props.note.updatedAt) }}
+        {{ t('editor.createdUpdated', { created: formatDateTime(props.note.createdAt), updated: formatRelativeTime(props.note.updatedAt) }) }}
       </span>
     </footer>
   </section>

@@ -1,4 +1,5 @@
 import type { Attachment, BackupAttachment, BackupFile, Folder, Note } from '@/types'
+import { t } from '@/lib/i18n'
 
 /**
  * 备份领域层（F-305，架构文档 4.4）：
@@ -45,7 +46,7 @@ export function backupSnoozeActive(
 
 /** 缺失/非法的备份文件：format 不匹配等结构问题 */
 export class BackupFormatError extends Error {
-  constructor(message = '不是有效的 TinyNote 备份文件') {
+  constructor(message = t('backup.invalidFile')) {
     super(message)
     this.name = 'BackupFormatError'
   }
@@ -102,7 +103,7 @@ export function parseBackupManifest(raw: unknown): BackupFile {
   }
   if (version > CURRENT_BACKUP_VERSION) {
     throw new BackupVersionError(
-      `备份 schemaVersion ${version} 高于当前支持的 ${CURRENT_BACKUP_VERSION}，请先升级应用`,
+      t('backup.versionTooNew', { version, current: CURRENT_BACKUP_VERSION }),
       version,
     )
   }
@@ -168,7 +169,7 @@ export function exportNotePath(note: Pick<Note, 'title' | 'content'>, index: num
 
 /** 文件系统安全化标题：剔除 Windows/Unix 非法字符，保留 CJK；空白折叠为连字符；超长截断 */
 export function fileNameSlug(note: Pick<Note, 'title' | 'content'>): string {
-  const raw = (note.title.trim() || note.content.split('\n')[0]?.trim() || '无标题笔记')
+  const raw = (note.title.trim() || note.content.split('\n')[0]?.trim() || t('common.untitled'))
     .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '')
     .trim()
     .replace(/\s+/g, '-')

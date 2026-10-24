@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
+import { t } from '@/lib/i18n'
 import { formatRelativeTime } from '@/lib/utils/time'
 import { SNAPSHOT_KEEP_LIMIT } from './history'
 import { useHistoryStore } from './stores/history'
@@ -27,7 +28,7 @@ onMounted(() => {
   >
     <div class="flex items-center justify-between px-4 py-3">
       <p class="text-[11px] font-medium text-gray-400">
-        历史版本
+        {{ t('editor.history') }}
         <span v-if="snapshots">{{ snapshots.length }}/{{ SNAPSHOT_KEEP_LIMIT }}</span>
       </p>
       <button
@@ -35,13 +36,13 @@ onMounted(() => {
         class="rounded-md px-1.5 py-0.5 text-xs text-gray-500 transition-colors hover:bg-white/80 hover:text-gray-800 dark:text-neutral-400 dark:hover:bg-white/10 dark:hover:text-neutral-100"
         @click="emit('snapshot')"
       >
-        存为快照
+        {{ t('history.saveSnapshot') }}
       </button>
     </div>
     <div class="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
-      <p v-if="snapshots === undefined" class="px-2 py-1 text-xs text-gray-400">加载中…</p>
+      <p v-if="snapshots === undefined" class="px-2 py-1 text-xs text-gray-400">{{ t('history.loading') }}</p>
       <p v-else-if="snapshots.length === 0" class="px-2 py-1 text-xs leading-5 text-gray-400">
-        暂无历史版本。编辑保存后，内容变化超过 20% 时会自动生成快照。
+        {{ t('history.empty') }}
       </p>
       <ul v-else class="space-y-0.5">
         <li
@@ -53,14 +54,14 @@ onMounted(() => {
             <span class="block text-xs text-gray-700 dark:text-neutral-200">
               {{ formatRelativeTime(snapshot.createdAt) }}
             </span>
-            <span class="block text-[11px] text-gray-400">{{ snapshot.content.length }} 字符</span>
+            <span class="block text-[11px] text-gray-400">{{ t('history.chars', { n: snapshot.content.length }) }}</span>
           </span>
           <button
             type="button"
             class="shrink-0 rounded-md px-1.5 py-0.5 text-xs text-gray-400 opacity-0 transition-all hover:bg-accent/10 hover:text-accent group-hover:opacity-100 dark:text-neutral-500 dark:hover:text-accent"
             @click="emit('restore', snapshot.id)"
           >
-            恢复
+            {{ t('common.restore') }}
           </button>
         </li>
       </ul>

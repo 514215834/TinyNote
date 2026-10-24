@@ -1,5 +1,6 @@
 import { attachmentRef, extractAttachmentIds } from '@/lib/markdown/attachmentRef'
 import { createId } from '@/lib/utils/id'
+import { t } from '@/lib/i18n'
 import type { Attachment } from '@/types'
 
 /**
@@ -22,7 +23,7 @@ export function pickImageFiles(files: Iterable<File>): File[] {
 
 /** 生成要插入正文的图片 Markdown（name 只用于 alt，需剥除可能破坏语法的方括号） */
 export function makeImageMarkdown(id: string, name: string): string {
-  const alt = name.trim().replace(/[[\]]/g, ' ').trim() || '图片'
+  const alt = name.trim().replace(/[[\]]/g, ' ').trim() || t('common.image')
   return `![${alt}](${attachmentRef(id)})`
 }
 

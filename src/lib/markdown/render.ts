@@ -4,6 +4,7 @@ import footnote from 'markdown-it-footnote'
 import taskLists from 'markdown-it-task-lists'
 import { ATTACHMENT_SCHEME } from './attachmentRef'
 import { assignHeadingIds } from './outline'
+import { t } from '@/lib/i18n'
 
 /** renderMarkdown 的环境参数：附件 id → blob URL 映射（F-303 预览解析） */
 export interface MarkdownRenderEnv {
@@ -54,7 +55,7 @@ md.renderer.rules.image = (tokens, idx, options, env, self) => {
     const id = src.slice(ATTACHMENT_SCHEME.length)
     const url = (env as MarkdownRenderEnv | undefined)?.attachmentUrls?.[id]
     if (url === undefined) {
-      return '<span class="text-xs text-amber-600 dark:text-amber-500">[图片缺失]</span>'
+      return `<span class="text-xs text-amber-600 dark:text-amber-500">${t('common.imageMissing')}</span>`
     }
     token.attrSet('src', url)
   }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { t } from '@/lib/i18n'
 import { useBackup } from './useBackup'
 import { useSettingsStore } from '@/features/settings/stores/settings'
 import { useNotesStore } from '@/features/notes/stores/notes'
@@ -28,7 +29,7 @@ async function backupNow(): Promise<void> {
   try {
     await exportBackupZip()
   } catch (error) {
-    window.alert(`导出失败：${error instanceof Error ? error.message : String(error)}`)
+    window.alert(t('header.exportFailed', { msg: error instanceof Error ? error.message : String(error) }))
   }
 }
 </script>
@@ -41,10 +42,10 @@ async function backupNow(): Promise<void> {
   >
     <span class="min-w-0 flex-1">
       <template v-if="daysSince === null">
-        笔记只保存在这台浏览器里，还没有导出过备份——建议立即导出一份，防止浏览器数据被清理后丢失。
+        {{ t('backup.bannerNever') }}
       </template>
       <template v-else>
-        距上次全量备份已 {{ daysSince }} 天（每 {{ BACKUP_REMINDER_DAYS }} 天提醒一次），建议重新导出留存。
+        {{ t('backup.bannerDue', { days: daysSince, cycle: BACKUP_REMINDER_DAYS }) }}
       </template>
     </span>
     <button
@@ -53,14 +54,14 @@ async function backupNow(): Promise<void> {
       class="shrink-0 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-3 py-1 font-medium text-white shadow-sm shadow-amber-500/30 transition-all hover:from-amber-400 hover:to-orange-400 disabled:opacity-50"
       @click="backupNow"
     >
-      立即备份
+      {{ t('backup.backupNow') }}
     </button>
     <button
       type="button"
       class="shrink-0 rounded-full px-2.5 py-1 text-amber-700 transition-colors hover:bg-amber-500/12 dark:text-amber-300 dark:hover:bg-amber-400/10"
       @click="settings.dismissBackupBanner()"
     >
-      暂不提醒
+      {{ t('backup.snooze') }}
     </button>
   </div>
 </template>

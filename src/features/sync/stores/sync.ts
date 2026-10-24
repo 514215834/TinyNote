@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { useLocalStorage } from '@vueuse/core'
 import { createId } from '@/lib/utils/id'
+import { t } from '@/lib/i18n'
 import { backupPort } from '@/lib/db/repositories/backupPort'
 import { settingsRepository } from '@/lib/db/repositories/settingsRepository'
 import { useNotesStore } from '@/features/notes/stores/notes'
@@ -28,8 +29,10 @@ export type SyncStatus = 'idle' | 'syncing' | 'ok' | 'error'
 /** 同步基线在 settings KV 的键名（属于需要跨设备口径一致的数据，随「清空全部数据」一并清除） */
 export const SYNC_BASELINE_KEY = 'syncBaseline'
 
-export const BASELINE_MISSING_MESSAGE =
-  '尚未同步过：首次同步将以上次更新时间较新的一方为准（last-write-wins），建议先「导出全量备份」再开始。'
+/** 首次同步提示：基线缺失时 UI 展示（随语言切换） */
+export function baselineMissingMessage(): string {
+  return t('sync.firstSyncWarn')
+}
 
 /**
  * 同步编排（F-501/F-502/F-503）：配置（PAT/Gist/设备名/加密）存 localStorage（架构文档 4.3），
@@ -59,12 +62,12 @@ export const useSyncStore = defineStore('sync', () => {
   /** 完整一轮同步；失败时置 error 状态并返回 null（错误信息在 errorMessage） */
   async function syncNow(): Promise<SyncStats | null> {
     if (!configured.value) {
-      errorMessage.value = '未配置访问令牌（PAT），无法同步'
+      errorMessage.value = t('sync.noPat')
       status.value = 'error'
       return null
     }
     if (!encryptReady.value) {
-      errorMessage.value = '已开启加密但未设置密码'
+      errorMessage.value = t('sync.noPassword')
       status.value = 'error'
       return null
     }
@@ -121,14 +124,14 @@ export const useSyncStore = defineStore('sync', () => {
     try {
       parsed = JSON.parse(raw)
     } catch {
-      throw new SyncFormatError('Gist 内容不是合法的 JSON')
+      throw new SyncFormatError(t('sync.invalidJson'))
     }
     if (isEncryptedEnvelope(parsed)) {
       const plaintext = await decryptSyncPayload(password.value, raw)
       try {
         parsed = JSON.parse(plaintext)
       } catch {
-        throw new SyncFormatError('解密后的内容不是合法的 JSON')
+        throw new SyncFormatError(t('sync.invalidDecryptedJson'))
       }
     }
     return toRemoteState(parseSyncFile(parsed))

@@ -5,6 +5,7 @@ import { backupPort } from '@/lib/db/repositories/backupPort'
 import { folderRepository } from '@/lib/db/repositories/folderRepository'
 import { noteRepository } from '@/lib/db/repositories/noteRepository'
 import { downloadBlob } from '@/lib/utils/download'
+import { localeTag, t } from '@/lib/i18n'
 import { displayTitle } from '@/features/notes/notes'
 import { useSettingsStore } from '@/features/settings/stores/settings'
 import {
@@ -137,13 +138,13 @@ function notesReadme(
 ): string {
   const lines = notes.map((note, index) => {
     const folder = note.folderId === null ? undefined : folderById.get(note.folderId)
-    return `${String(index + 1).padStart(4, '0')}. ${displayTitle(note)}${folder ? `（文件夹：${folder.name}）` : ''}`
+    return `${String(index + 1).padStart(4, '0')}. ${displayTitle(note)}${folder ? t('backup.readmeFolder', { name: folder.name }) : ''}`
   })
   return [
-    'TinyNote 笔记导出（F-304）',
-    `导出时间：${new Date().toLocaleString('zh-CN', { hour12: false })}`,
-    `笔记总数：${notes.length}（不含回收站中的笔记）`,
-    '说明：本包用于通用阅读与迁移到其他 Markdown 工具；带标签/置顶/回收站/附件的精确还原，请使用「全量备份」导出的 zip（可在应用数据菜单中导入）。',
+    t('backup.readmeTitle'),
+    t('backup.readmeTime', { time: new Date().toLocaleString(localeTag(), { hour12: false }) }),
+    t('backup.readmeCount', { n: notes.length }),
+    t('backup.readmeNote'),
     '',
     ...lines,
   ].join('\n')

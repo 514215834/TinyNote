@@ -5,6 +5,7 @@ import { createId } from '@/lib/utils/id'
 import { noteRepository } from '@/lib/db/repositories/noteRepository'
 import { makeExcerpt } from '@/features/notes/notes'
 import { trashCutoff } from '@/features/trash/trash'
+import { discardIndex, indexNote, removeFromIndex, scheduleIndexBuild } from '@/features/search/searchIndex'
 
 export const useNotesStore = defineStore('notes', () => {
   /** 元数据列表（F-523 正文分离）：不含正文，正文经 loadContent 按需读取 */
@@ -50,6 +51,8 @@ export const useNotesStore = defineStore('notes', () => {
     contentPromises.clear()
     contentEpoch.value++
     await reload()
+    discardIndex() // 整库被同步改写：索引整体过期，择机重建
+    scheduleIndexBuild(notes.value.length)
   }
 
   async function init(): Promise<void> {
@@ -82,6 +85,7 @@ export const useNotesStore = defineStore('notes', () => {
     await noteRepository.saveWithContent(note, '')
     notes.value = [note, ...notes.value]
     selectedId.value = note.id
+    indexNote(note.id, '', '') // F-604：空文档先进索引，保存路径随后增量更新
   }
 
   /**
@@ -98,6 +102,7 @@ export const useNotesStore = defineStore('notes', () => {
     await noteRepository.saveWithContent(note, patch.content)
     // 刚写入的正文进入缓存，编辑器随后的 loadContent 命中缓存
     contentCache = { id, content: patch.content }
+    indexNote(id, patch.title, patch.content) // F-604：倒排索引增量更新
   }
 
   /** F-202：整表写入标签（去重与解析由调用方完成）；无变化时跳过写库 */
@@ -133,27 +138,42 @@ export const useNotesStore = defineStore('notes', () => {
     notes.value = notes.value.filter((n) => n.id !== id)
     trashedNotes.value = await noteRepository.listTrashed()
     if (selectedId.value === id) selectedId.value = notes.value[0]?.id ?? null
+    removeFromIndex(id) // F-604：回收站中的笔记不参与全文检索
   }
 
   /** F-204：从回收站恢复；folderId/tags/pinned 原样保留（由 repository.restore 保证） */
   async function restore(id: string): Promise<void> {
     await noteRepository.restore(id)
     await reload()
+    void reindexNote(id) // F-604：重新入索引（标题 + 正文按需补读）
   }
 
   async function deleteForever(id: string): Promise<void> {
     await noteRepository.deleteForever(id)
     trashedNotes.value = trashedNotes.value.filter((note) => note.id !== id)
+    removeFromIndex(id)
   }
 
   async function emptyTrash(): Promise<void> {
     await noteRepository.emptyTrash()
     trashedNotes.value = []
+    discardIndex() // 批量删除直接弃索引，择机重建
+    scheduleIndexBuild(notes.value.length)
   }
 
   /** F-204：启动惰性清理——物理删除进入回收站超过 30 天的笔记（now 注入便于测试） */
   async function autopurge(now: number): Promise<void> {
     await noteRepository.purgeExpiredBefore(trashCutoff(now))
+  }
+
+  /** F-604：按库中当前状态重建单篇的索引条目（恢复路径用） */
+  async function reindexNote(id: string): Promise<void> {
+    const meta = await noteRepository.get(id)
+    if (meta === undefined || meta.trashed) {
+      removeFromIndex(id)
+      return
+    }
+    indexNote(id, meta.title, await noteRepository.getContent(id))
   }
 
   function setFolderFilter(folderId: string | null): void {

@@ -1,4 +1,5 @@
 import { base64ToBytes, bytesToBase64 } from '@/lib/utils/base64'
+import { t } from '@/lib/i18n'
 import { SYNC_FORMAT_ENCRYPTED } from './sync'
 
 /**
@@ -29,7 +30,7 @@ export function isEncryptedEnvelope(raw: unknown): raw is EncryptedEnvelope {
 
 function subtle(): SubtleCrypto {
   const c = globalThis.crypto
-  if (!c?.subtle) throw new Error('当前环境不支持 Web Crypto，无法使用同步加密')
+  if (!c?.subtle) throw new Error(t('sync.cryptoUnsupported'))
   return c.subtle
 }
 
@@ -47,7 +48,7 @@ async function deriveKey(password: string, salt: Uint8Array, usages: KeyUsage[])
 
 /** 明文 JSON → 信封 JSON 字符串 */
 export async function encryptSyncPayload(password: string, plaintext: string): Promise<string> {
-  if (password === '') throw new Error('已开启加密但未设置密码')
+  if (password === '') throw new Error(t('sync.noPassword'))
   const salt = new Uint8Array(16)
   const iv = new Uint8Array(12)
   globalThis.crypto.getRandomValues(salt)
@@ -76,11 +77,11 @@ export async function decryptSyncPayload(password: string, envelopeJson: string)
   try {
     envelope = JSON.parse(envelopeJson)
   } catch {
-    throw new SyncDecryptError('同步数据不是合法的加密信封')
+    throw new SyncDecryptError(t('sync.invalidEnvelope'))
   }
-  if (!isEncryptedEnvelope(envelope)) throw new SyncDecryptError('同步数据不是合法的加密信封')
+  if (!isEncryptedEnvelope(envelope)) throw new SyncDecryptError(t('sync.invalidEnvelope'))
   if (envelope.kdf !== 'PBKDF2-SHA256' || typeof envelope.iterations !== 'number') {
-    throw new SyncDecryptError('加密参数不受支持，请升级应用')
+    throw new SyncDecryptError(t('sync.unsupportedKdf'))
   }
   try {
     const key = await deriveKey(password, base64ToBytes(envelope.salt), ['decrypt'])
@@ -91,7 +92,7 @@ export async function decryptSyncPayload(password: string, envelopeJson: string)
     )
     return new TextDecoder().decode(plaintext)
   } catch {
-    throw new SyncDecryptError('解密失败：密码错误或同步数据已损坏')
+    throw new SyncDecryptError(t('sync.decryptFailed'))
   }
 }
 
