@@ -6,10 +6,11 @@ const notesStore = useNotesStore()
 </script>
 
 <template>
-  <!-- :key 使切换笔记时重建编辑器：旧实例卸载时 flush 待写草稿，新实例从新笔记初始化 -->
+  <!-- :key 使切换笔记时重建编辑器：旧实例卸载时 flush 待写草稿，新实例从新笔记初始化。
+       contentEpoch 参与取值（F-501）：同步合并重写库内容后强制重建，重读正文避免旧草稿覆盖远端写入 -->
   <NoteEditor
     v-if="notesStore.selectedNote"
-    :key="notesStore.selectedId ?? ''"
+    :key="`${notesStore.selectedId ?? ''}:${notesStore.contentEpoch}`"
     :note="notesStore.selectedNote"
   />
   <div

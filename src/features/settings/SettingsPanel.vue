@@ -12,6 +12,7 @@ import {
   type StorageSummary,
 } from '@/features/pwa/storage'
 import { wipeLocalData } from '@/features/pwa/wipe'
+import SyncSection from '@/features/sync/SyncSection.vue'
 
 /**
  * 设置面板（F-521/F-522）：外观定制（主题色/字体/字号/行宽）与浏览器缓存管理。
@@ -289,6 +290,9 @@ function setFontSize(delta: number): void {
           </button>
         </div>
       </section>
+
+      <!-- 同步（F-501/F-502/F-503）：GitHub Gist 多设备同步 -->
+      <SyncSection />
     </div>
   </div>
 </template>
