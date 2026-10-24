@@ -11,6 +11,7 @@ import BackupBanner from '@/features/backup/BackupBanner.vue'
 import UpdateBanner from '@/features/pwa/UpdateBanner.vue'
 import CommandPalette from '@/features/search/CommandPalette.vue'
 import SettingsPanel from '@/features/settings/SettingsPanel.vue'
+import { useSyncStore } from '@/features/sync/stores/sync'
 import { requestPersistentStorage } from '@/features/pwa/storage'
 import { displayTitle } from '@/features/notes/notes'
 import { useHotkeys } from '@/composables/shortcuts'
@@ -20,18 +21,21 @@ const notesStore = useNotesStore()
 const foldersStore = useFoldersStore()
 const settings = useSettingsStore()
 const searchStore = useSearchStore()
+const syncStore = useSyncStore()
 
 onMounted(() => {
   void bootstrap()
 })
 
-/** 启动流程：先惰性清理过期回收站（F-204），再加载列表与文件夹；F-405 申请持久化存储 */
+/** 启动流程：先惰性清理过期回收站（F-204），再加载列表与文件夹；F-405 申请持久化存储；
+ *  F-501 配置了同步时进入应用自动同步一轮（不阻塞首屏，失败只体现在设置面板状态里） */
 async function bootstrap(): Promise<void> {
   void requestPersistentStorage()
   await notesStore.autopurge(Date.now())
   await notesStore.init()
   await foldersStore.init()
   await settings.initBackupReminder()
+  void syncStore.autoSyncIfDue()
 }
 
 /** F-206：Ctrl+N 新建（在回收站视图下会先回到笔记视图） */

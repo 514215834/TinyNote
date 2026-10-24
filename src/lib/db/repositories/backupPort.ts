@@ -64,4 +64,40 @@ export const backupPort = {
       await Promise.all(db.tables.map((table) => table.clear()))
     })
   },
+
+  /**
+   * F-501 同步合并结果落库：与 restore 同为全量覆盖语义（合并输出即全量库），
+   * 但不动历史快照与 settings——同步是合并而非还原，本机编辑历史应保留。
+   * deletedNoteIds 为远端删除传播在本机物理删除的笔记，其遗留快照一并清理。
+   */
+  async applySyncLibrary(data: LibrarySnapshot, deletedNoteIds: string[] = []): Promise<void> {
+    await db.transaction(
+      'rw',
+      db.notes,
+      db.contents,
+      db.folders,
+      db.attachments,
+      db.snapshots,
+      async () => {
+        await db.notes.clear()
+        await db.contents.clear()
+        await db.folders.clear()
+        await db.attachments.clear()
+        await db.folders.bulkPut(data.folders.map((folder) => ({ ...folder })))
+        await db.contents.bulkPut(
+          data.notes.map((note) => ({ id: note.id, content: note.content })),
+        )
+        await db.notes.bulkPut(
+          data.notes.map((note) => {
+            const { content, ...rest } = note
+            return { ...rest, tags: [...note.tags], excerpt: makeExcerpt(content) }
+          }),
+        )
+        await db.attachments.bulkPut(data.attachments.map((attachment) => ({ ...attachment })))
+        if (deletedNoteIds.length > 0) {
+          await db.snapshots.where('noteId').anyOf([...deletedNoteIds]).delete()
+        }
+      },
+    )
+  },
 }

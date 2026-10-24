@@ -23,6 +23,9 @@ export const useNotesStore = defineStore('notes', () => {
   let contentCache: { id: string; content: string } | null = null
   const contentPromises = new Map<string, Promise<string>>()
 
+  /** 外部写入代数（F-501）：同步等外部来源重写了库内容时 +1，编辑器以其参与 :key 强制重建重读正文 */
+  const contentEpoch = ref(0)
+
   function loadContent(id: string): Promise<string> {
     if (contentCache?.id === id) return Promise.resolve(contentCache.content)
     let pending = contentPromises.get(id)
@@ -35,6 +38,18 @@ export const useNotesStore = defineStore('notes', () => {
       contentPromises.set(id, pending)
     }
     return pending
+  }
+
+  /**
+   * 外部来源（F-501 同步合并）改写了库数据后的联动：清空正文缓存与在途读取，
+   * 并推进 contentEpoch 让挂载中的编辑器重建——否则编辑器草稿停留在旧正文，
+   * 下次保存会以旧内容为基础覆盖远端写入。
+   */
+  async function noteExternalReload(): Promise<void> {
+    contentCache = null
+    contentPromises.clear()
+    contentEpoch.value++
+    await reload()
   }
 
   async function init(): Promise<void> {
@@ -167,7 +182,9 @@ export const useNotesStore = defineStore('notes', () => {
     loaded,
     activeFolderId,
     activeTag,
+    contentEpoch,
     loadContent,
+    noteExternalReload,
     init,
     reload,
     createNote,

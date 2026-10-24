@@ -66,13 +66,13 @@ flowchart TB
         D2["FolderRepository / AttachmentRepository"]
         D3["SettingsRepository"]
         D4["BackupPort（导出/导入）"]
-        D5["SyncPort（远期：Gist 同步）"]
+        D5["SyncPort（v0.6 已落地：Gist 同步）"]
     end
     subgraph STORAGE["存储层（可替换实现）"]
         E1["Dexie / IndexedDB"]
         E2["localStorage（仅 UI 偏好）"]
         E3["下载文件 / 文件选择器"]
-        E4["GitHub Gist API（远期，需用户配置）"]
+        E4["GitHub Gist API（v0.6，用户自备 PAT）"]
     end
 
     UI --> APP --> DOMAIN --> DATA --> STORAGE
@@ -201,7 +201,7 @@ db.version(4).stores({
 | 存储 | 内容 | 说明 |
 | --- | --- | --- |
 | IndexedDB（Dexie） | 笔记（元数据）、正文、文件夹、附件、历史版本 | 用户核心数据，唯一事实来源 |
-| localStorage | 主题色/字体/字号/行宽（F-521）、深浅色、查看模式、行号开关、备份提醒贪睡等轻量 UI 状态 | 丢了不心疼，且体积小、同步读取快（@vueuse/core 的 `useDark`/`useLocalStorage` 直接托管；键名 `tinynote:*`，「清空全部数据」时一并清除） |
+| localStorage | 主题色/字体/字号/行宽（F-521）、深浅色、查看模式、行号开关、备份提醒贪睡、同步配置（PAT/Gist id/设备名/加密开关/密码/设备标识，F-501）等轻量 UI 状态 | 丢了不心疼，且体积小、同步读取快（@vueuse/core 的 `useDark`/`useLocalStorage` 直接托管；键名 `tinynote:*`，「清空全部数据」时一并清除）。同步基线属数据口径，存 IndexedDB settings KV（`syncBaseline`） |
 
 ### 4.4 备份与导出格式的演进
 
@@ -222,6 +222,7 @@ db.version(4).stores({
 | ADR-007 | Markdown 库选型 | **markdown-it** 优于 marked：默认安全基线（转义而非放行 HTML）、插件生态（v0.3 的任务列表/脚注直接加插件）、`linkify` 配置齐备 |
 | ADR-008 | 回收站索引 | 不索引 `trashed` 布尔字段（IndexedDB 键不支持 boolean/null），改用 `trashedAt` 数值索引表达"回收站全集"（见 4.2） |
 | ADR-009 | 正文分离 | **notes 表只存元数据（NoteMeta），正文拆入 contents 表按需读取**（v0.5/F-523）。列表/启动内存与笔记总量脱钩，单篇超大笔记不再拖慢全局；代价是保存写两表（单事务）与备份导出 join。备份格式 schemaVersion 2 保持不变 |
+| ADR-010 | 同步路线落地 | **全量载荷 + 基线指纹三方合并**（v0.6/F-501～F-503）：全部数据存单个 secret Gist 文件（SyncFile schemaVersion 1，JSON + 附件 base64）；以上次同步成功的状态指纹（settings KV `syncBaseline`）做三方判定，双侧都改时 `updatedAt` LWW、落败方保留为冲突副本，修改优先于删除，快照不参与同步；可选 AES-GCM（PBKDF2 600k 轮）端到端加密。首次同步无基线退化为纯 LWW（UI 提示先备份）。不自建服务器的承诺不变，PAT 仅存本机 |
 
 ## 6. 目录结构
 
@@ -251,6 +252,10 @@ tinynote/
 │   │   ├── history/            #   （v0.4 已落地）history.ts（快照阈值/上限纯函数）+ HistoryPanel.vue + stores/history.ts
 │   │   ├── pwa/                #   （v0.4 已落地）storage.ts（持久化/用量）+ usePwaUpdate.ts + UpdateBanner.vue
 │   │   ├── backup/             #   （v0.3 已落地）backup.ts（manifest/迁移/命名纯函数）+ useBackup.ts（fflate 编排）+ BackupBanner.vue
+│   │   ├── sync/               #   （v0.6 已落地）sync.ts（载荷/指纹/三方合并纯函数）+ syncCrypto.ts（AES-GCM/PBKDF2）
+│   │   │   ├── gistClient.ts              # GitHub Gist REST（单文件 secret Gist）
+│   │   │   ├── stores/sync.ts             # 编排：拉取→合并→落库→上传→基线；配置存 localStorage
+│   │   │   └── SyncSection.vue            # 设置面板「同步」区块
 │   │   └── settings/           #   stores/settings.ts（主题 + 编辑器行号偏好 + 备份提醒状态）
 │   ├── components/             # 跨功能通用 UI（AppHeader 等）
 │   ├── composables/            # 跨功能组合式函数
