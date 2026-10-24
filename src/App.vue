@@ -57,16 +57,9 @@ useHotkeys([
 </script>
 
 <template>
-    <!-- 液态玻璃布局：环境光晕打底，顶栏 / 侧栏 / 主区为三块浮动的磨砂玻璃 -->
+    <!-- 液态玻璃布局：顶栏 / 侧栏 / 主区为三块浮动的磨砂玻璃（纯色底，无背景光晕装饰） -->
     <div class="relative flex h-dvh flex-col overflow-hidden text-gray-900 dark:text-neutral-100">
-      <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-        <!-- F-521：光晕颜色由主题预设变量驱动（main.css .orb-1/2/3） -->
-        <span class="orb orb-1 left-[-6rem] top-[-8rem] h-[30rem] w-[30rem]"></span>
-        <span class="orb orb-2 right-[-8rem] top-1/4 h-[26rem] w-[26rem]" style="animation-delay: -9s"></span>
-        <span class="orb orb-3 bottom-[-10rem] left-1/3 h-[28rem] w-[28rem]" style="animation-delay: -17s"></span>
-      </div>
-
-    <AppHeader />
+      <AppHeader />
     <BackupBanner />
     <div class="flex min-h-0 flex-1 gap-3 p-3">
       <NoteListSidebar />

@@ -60,8 +60,6 @@ export const useSettingsStore = defineStore('settings', () => {
     const root = document.documentElement
     root.style.setProperty('--color-accent', vars.accent)
     root.style.setProperty('--color-accent-strong', vars.accentStrong)
-    vars.orbLight.forEach((color, index) => root.style.setProperty(`--orb-${index + 1}`, color))
-    vars.orbDark.forEach((color, index) => root.style.setProperty(`--orb-${index + 1}-dark`, color))
     root.style.setProperty('--font-content', vars.fontContent)
     root.style.setProperty('--preview-font-size', vars.previewFontSize)
     root.style.setProperty('--content-max-width', vars.contentMaxWidth)
