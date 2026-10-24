@@ -29,6 +29,20 @@ export function backupReminderDue(
   return lastBackupAt <= now - days * DAY_MS
 }
 
+/**
+ * 「暂不提醒」贪睡是否仍有效（F-403）：关闭横幅记忆为一次提醒计时重置（存 localStorage），
+ * 同一提醒周期内不再提示，超过 days 后重新提醒（关闭不等于「已备份」）。
+ * 无记录（0/null/undefined）或时间戳已过周期均视为未贪睡。
+ */
+export function backupSnoozeActive(
+  snoozedAt: number | null | undefined,
+  now: number,
+  days: number = BACKUP_REMINDER_DAYS,
+): boolean {
+  if (snoozedAt === null || snoozedAt === undefined) return false
+  return snoozedAt > now - days * DAY_MS
+}
+
 /** 缺失/非法的备份文件：format 不匹配等结构问题 */
 export class BackupFormatError extends Error {
   constructor(message = '不是有效的 TinyNote 备份文件') {

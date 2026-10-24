@@ -2,14 +2,14 @@
 import { computed, ref, nextTick, watch, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { useEventListener, watchDebounced } from '@vueuse/core'
-import type { Folder, Note } from '@/types'
+import type { Folder, NoteMeta } from '@/types'
 import { useNotesStore } from './stores/notes'
 import { useFoldersStore } from '@/features/folders/stores/folders'
 import { useSearchStore } from '@/features/search/stores/search'
 import { filterByFolder, filterByTag, filterNotes } from '@/features/search/search'
 import { highlightSegments } from '@/features/search/highlight'
 import { collectTags } from '@/features/tags/tags'
-import { displayTitle, makeExcerpt, sortNotesForList } from './notes'
+import { displayTitle, sortNotesForList } from './notes'
 import { formatRelativeTime } from '@/lib/utils/time'
 
 const router = useRouter()
@@ -17,19 +17,27 @@ const notesStore = useNotesStore()
 const foldersStore = useFoldersStore()
 const searchStore = useSearchStore()
 
-// 搜索输入防抖 200ms（架构文档 §8），避免大列表下的高频过滤
+// 搜索输入防抖 200ms（架构文档 §8）。与 Ctrl+K 面板共用全局搜索词：面板修改时回写输入框
 const keyword = ref('')
 watchDebounced(keyword, (value) => searchStore.set(value.trim()), { debounce: 200 })
-
-// 过滤流水线：文件夹 → 标签 → 搜索（标题命中优先）→ 置顶优先（F-201/F-202/F-205/F-203）
-const visibleNotes = computed(() =>
-  sortNotesForList(
-    filterNotes(
-      filterByTag(filterByFolder(notesStore.notes, notesStore.activeFolderId), notesStore.activeTag),
-      searchStore.query,
-    ),
-  ),
+watch(
+  () => searchStore.query,
+  (value) => {
+    if (value !== keyword.value.trim()) keyword.value = value
+  },
 )
+
+// 过滤流水线：文件夹 → 标签 → 搜索 → 置顶优先（F-201/F-202/F-205/F-203）。
+// F-524：标题/摘要即时过滤 + 正文异步命中并入（扫描完成后列表渐进更新，无功能回退）
+const visibleNotes = computed(() => {
+  const base = filterByTag(filterByFolder(notesStore.notes, notesStore.activeFolderId), notesStore.activeTag)
+  const query = searchStore.query.trim()
+  if (query === '') return sortNotesForList(base)
+  const metaHits = filterNotes(base, query)
+  const metaIds = new Set(metaHits.map((note) => note.id))
+  const contentHits = base.filter((note) => !metaIds.has(note.id) && searchStore.contentHitIds.has(note.id))
+  return sortNotesForList([...metaHits, ...contentHits])
+})
 
 const tags = computed(() => collectTags(notesStore.notes))
 const totalNotes = computed(() => notesStore.notes.length)
@@ -59,7 +67,7 @@ async function createNote(): Promise<void> {
   await notesStore.createNote()
 }
 
-function selectNote(note: Note): void {
+function selectNote(note: NoteMeta): void {
   notesStore.select(note.id)
   openNotesView()
 }
@@ -77,17 +85,17 @@ function toggleTag(tag: string): void {
   openNotesView()
 }
 
-function removeNote(note: Note): void {
+function removeNote(note: NoteMeta): void {
   if (window.confirm(`删除「${displayTitle(note)}」？`)) void notesStore.softDelete(note.id)
 }
 
-function togglePin(note: Note): void {
+function togglePin(note: NoteMeta): void {
   void notesStore.togglePin(note.id)
 }
 
 /** F-201：菜单移动笔记（点击菜单外任意位置收起，菜单内按钮已 stopPropagation） */
 const movingMenuId = ref<string | null>(null)
-function moveNote(note: Note, folderId: string | null): void {
+function moveNote(note: NoteMeta, folderId: string | null): void {
   movingMenuId.value = null
   void notesStore.moveToFolder(note.id, folderId)
 }
@@ -161,7 +169,7 @@ function removeFolder(folder: Folder): void {
     <div class="space-y-2 p-3">
       <button
         type="button"
-        class="w-full rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-3 py-2 text-sm font-medium text-white shadow-sm shadow-indigo-500/30 transition-all hover:from-indigo-400 hover:to-violet-400 hover:shadow-md hover:shadow-indigo-500/40 active:scale-[0.99]"
+        class="w-full rounded-xl bg-gradient-to-r from-accent to-accent-strong px-3 py-2 text-sm font-medium text-white shadow-sm shadow-accent/30 transition-all hover:shadow-md hover:shadow-accent/40 hover:brightness-110 active:scale-[0.99]"
         @click="createNote()"
       >
         + 新建笔记
@@ -169,10 +177,10 @@ function removeFolder(folder: Folder): void {
       <input
         v-model="keyword"
         type="search"
-        placeholder="搜索笔记…（Ctrl+K 聚焦）"
+        placeholder="搜索笔记…（Ctrl+K 全文搜索）"
         aria-label="搜索笔记"
         data-note-search
-        class="w-full rounded-full border border-gray-900/10 bg-white/50 px-3.5 py-1.5 text-sm outline-none transition-colors placeholder:text-gray-400 focus:border-indigo-400/60 focus:bg-white/80 focus:ring-2 focus:ring-indigo-400/20 dark:border-white/10 dark:bg-white/5 dark:placeholder:text-neutral-500 dark:focus:border-indigo-400/50 dark:focus:bg-white/10"
+        class="w-full rounded-full border border-gray-900/10 bg-white/50 px-3.5 py-1.5 text-sm outline-none transition-colors placeholder:text-gray-400 focus:border-accent/60 focus:bg-white/80 focus:ring-2 focus:ring-accent/20 dark:border-white/10 dark:bg-white/5 dark:placeholder:text-neutral-500 dark:focus:border-accent/50 dark:focus:bg-white/10"
       />
     </div>
 
@@ -294,7 +302,7 @@ function removeFolder(folder: Folder): void {
           type="button"
           :class="
             notesStore.activeTag === item.tag
-              ? 'bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-sm shadow-indigo-500/30'
+              ? 'bg-gradient-to-r from-accent to-accent-strong text-white shadow-sm shadow-accent/30'
               : 'bg-white/60 text-gray-600 hover:bg-white/90 dark:bg-white/8 dark:text-neutral-300 dark:hover:bg-white/15'
           "
           class="rounded-full px-2.5 py-0.5 text-xs transition-colors"
@@ -322,7 +330,7 @@ function removeFolder(folder: Folder): void {
         :key="note.id"
         :class="
           note.id === notesStore.selectedId
-            ? 'bg-white/85 shadow-sm ring-1 ring-indigo-400/30 dark:bg-white/10 dark:ring-indigo-400/25'
+            ? 'bg-white/85 shadow-sm ring-1 ring-accent/30 dark:bg-white/10 dark:ring-accent/25'
             : 'hover:bg-white/55 dark:hover:bg-white/5'
         "
         class="group relative cursor-pointer rounded-xl px-3 py-2 transition-colors"
@@ -366,7 +374,7 @@ function removeFolder(folder: Folder): void {
         </div>
         <p class="mt-0.5 truncate text-xs text-gray-500 group-hover:hidden dark:text-neutral-400">
           <template
-            v-for="(segment, index) in highlightSegments(makeExcerpt(note.content), searchStore.query)"
+            v-for="(segment, index) in highlightSegments(note.excerpt, searchStore.query)"
             :key="index"
           >
             <mark v-if="segment.hit" class="bg-amber-200 text-inherit dark:bg-amber-700/50">{{ segment.text }}</mark>

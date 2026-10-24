@@ -1,12 +1,14 @@
 import Dexie, { type Table } from 'dexie'
-import type { Attachment, Folder, Note, NoteSnapshot, Setting } from '@/types'
+import type { Attachment, Folder, NoteContent, NoteMeta, NoteSnapshot, Setting } from '@/types'
+import { makeExcerpt } from '@/features/notes/notes'
 
 export class TinyNoteDB extends Dexie {
-  notes!: Table<Note, string>
+  notes!: Table<NoteMeta, string>
   folders!: Table<Folder, string>
   settings!: Table<Setting, string>
   attachments!: Table<Attachment, string>
   snapshots!: Table<NoteSnapshot, string>
+  contents!: Table<NoteContent, string>
 
   constructor(name = 'tinynote') {
     super(name)
@@ -36,6 +38,27 @@ export class TinyNoteDB extends Dexie {
       snapshots: 'id, noteId, createdAt',
     }).upgrade(async () => {
       // v2 → v3 只新增表，不改造既有数据，无需动作
+    })
+    this.version(4).stores({
+      notes: 'id, folderId, updatedAt, *tags, trashedAt',
+      folders: 'id, name, order',
+      settings: 'key',
+      attachments: 'id, noteId',
+      snapshots: 'id, noteId, createdAt',
+      // F-523：正文分离表（与 notes 按 id 1:1）。列表/搜索只读元数据，正文按需读取
+      contents: 'id',
+    }).upgrade(async (tx) => {
+      // v3 → v4：notes.content 拆到 contents 表，notes 行改写为元数据（含保存时摘要）。
+      // 一次性全量读入（与备份导出同量级），随后整批写回，避免边遍历边改写同一表。
+      const notesTable = tx.table('notes')
+      const rows: Array<{ id: string; content?: string }> = await notesTable.toArray()
+      await tx.table('contents').bulkPut(rows.map((row) => ({ id: row.id, content: row.content ?? '' })))
+      await notesTable.bulkPut(
+        rows.map((row) => {
+          const { content, ...meta } = row
+          return { ...meta, excerpt: makeExcerpt(content ?? '') }
+        }),
+      )
     })
   }
 }

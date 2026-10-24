@@ -15,6 +15,7 @@ import {
   backupFileName,
   backupNotePath,
   backupReminderDue,
+  backupSnoozeActive,
   buildBackupManifest,
   extensionFor,
   fileNameSlug,
@@ -169,7 +170,11 @@ describe('备份 zip 往返 → 导入恢复（F-305 验收购回路径）', () 
         { id: 'a1', noteId: 'n1', name: 'pic.png', mime: 'image/png', size: 3, blob, createdAt: 7 },
       ],
     }
-    for (const note of source.notes) await db.notes.put(note)
+    for (const note of source.notes) {
+      const { content, ...meta } = note
+      await db.notes.put({ ...meta, tags: [...meta.tags], excerpt: content })
+      await db.contents.put({ id: note.id, content })
+    }
     await db.folders.put(source.folders[0])
     await db.attachments.put(source.attachments[0])
 
@@ -187,6 +192,7 @@ describe('备份 zip 往返 → 导入恢复（F-305 验收购回路径）', () 
 
     // 2) 清库（模拟换设备）
     await db.notes.clear()
+    await db.contents.clear()
     await db.folders.clear()
     await db.attachments.clear()
 
@@ -200,6 +206,8 @@ describe('备份 zip 往返 → 导入恢复（F-305 验收购回路径）', () 
 
     expect((await db.notes.get('n1'))?.tags).toEqual(['工作'])
     expect((await db.notes.get('n2'))?.trashed).toBe(true)
+    expect((await db.contents.get('n1'))?.content).toBe('内容-n1')
+    expect(await db.contents.get('n2')).not.toBeUndefined()
     expect(await db.folders.toArray()).toEqual(source.folders)
     const restored = await db.attachments.get('a1')
     expect(restored?.blob).toBeInstanceOf(Blob)
@@ -219,10 +227,13 @@ describe('备份 zip 往返 → 导入恢复（F-305 验收购回路径）', () 
 
 describe('noteRepository 物理删除连带附件清理（F-303 补充）', () => {
   it('deleteForever 顺带删除该笔记附件；listAll 含回收站笔记', async () => {
-    await db.notes.put(makeNote('n1'))
+    for (const note of [makeNote('n1'), makeNote('n2', { trashed: true, trashedAt: 1 })]) {
+      const { content, ...meta } = note
+      await db.notes.put({ ...meta, tags: [...meta.tags], excerpt: content })
+      await db.contents.put({ id: note.id, content })
+    }
     await db.attachments.put({ ...sourceAttachment(), noteId: 'n1' })
     await db.attachments.put({ ...sourceAttachment(), id: 'a2', noteId: 'n2' })
-    await db.notes.put(makeNote('n2', { trashed: true, trashedAt: 1 }))
 
     expect((await backupPort.snapshot()).notes).toHaveLength(2)
     await noteRepository.deleteForever('n1')
@@ -261,5 +272,42 @@ describe('backupReminderDue（F-403 备份提醒口径）', () => {
   it('提醒周期可注入（days 参数）', () => {
     expect(backupReminderDue(NOW - 3 * DAY, NOW, 2)).toBe(true)
     expect(backupReminderDue(NOW - 3 * DAY, NOW, 4)).toBe(false)
+  })
+})
+
+describe('backupSnoozeActive（F-403 「暂不提醒」贪睡口径）', () => {
+  const DAY = 86_400_000
+  const NOW = 1_700_000_000_000
+
+  it('从未贪睡（null/undefined）视为未贪睡', () => {
+    expect(backupSnoozeActive(null, NOW)).toBe(false)
+    expect(backupSnoozeActive(undefined, NOW)).toBe(false)
+  })
+
+  it('贪睡期内生效；恰好满 7 天失效，重新进入提醒（边界与 backupReminderDue 一致）', () => {
+    expect(backupSnoozeActive(NOW - 3 * DAY, NOW)).toBe(true)
+    expect(backupSnoozeActive(NOW - 7 * DAY, NOW)).toBe(false)
+    expect(backupSnoozeActive(NOW - 7 * DAY + 1, NOW)).toBe(true)
+  })
+})
+
+describe('backupPort.wipe（F-522 清空全部数据）', () => {
+  it('单事务清空全部表（笔记/正文/文件夹/附件/快照/设置）', async () => {
+    const { content, ...meta } = makeNote('n1')
+    await db.notes.put({ ...meta, tags: [...meta.tags], excerpt: content })
+    await db.contents.put({ id: 'n1', content })
+    await db.folders.put({ id: 'f1', name: '工作', order: 0, createdAt: 1 })
+    await db.attachments.put({ ...sourceAttachment() })
+    await db.snapshots.put({ id: 's1', noteId: 'n1', content: 'x', createdAt: 1 })
+    await db.settings.put({ key: 'lastBackupAt', value: '123' })
+
+    await backupPort.wipe()
+
+    expect(await db.notes.count()).toBe(0)
+    expect(await db.contents.count()).toBe(0)
+    expect(await db.folders.count()).toBe(0)
+    expect(await db.attachments.count()).toBe(0)
+    expect(await db.snapshots.count()).toBe(0)
+    expect(await db.settings.count()).toBe(0)
   })
 })

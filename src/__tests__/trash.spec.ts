@@ -4,16 +4,16 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '@/lib/db/db'
 import { noteRepository } from '@/lib/db/repositories/noteRepository'
 import { TRASH_RETENTION_DAYS, isPurgeExpired, trashCutoff } from '@/features/trash/trash'
-import type { Note } from '@/types'
+import type { NoteMeta } from '@/types'
 
 const DAY = 86_400_000
 const NOW = 1_700_000_000_000
 
-function makeNote(id: string, trashedAt: number | null, extra: Partial<Note> = {}): Note {
+function makeNote(id: string, trashedAt: number | null, extra: Partial<NoteMeta> = {}): NoteMeta {
   return {
     id,
     title: `标题-${id}`,
-    content: '内容',
+    excerpt: '内容',
     folderId: 'f1',
     tags: ['工作'],
     pinned: false,
@@ -25,8 +25,15 @@ function makeNote(id: string, trashedAt: number | null, extra: Partial<Note> = {
   }
 }
 
+/** 直写数据库的种子（F-523 存储形态）：元数据行 + 正文行 */
+async function seedNote(meta: NoteMeta): Promise<void> {
+  await db.notes.put({ ...meta, tags: [...meta.tags] })
+  await db.contents.put({ id: meta.id, content: '内容' })
+}
+
 beforeEach(async () => {
   await db.notes.clear()
+  await db.contents.clear()
 })
 
 describe('trashCutoff / isPurgeExpired（F-204，注入当前时间的 30 天清理判断）', () => {
@@ -53,7 +60,7 @@ describe('trashCutoff / isPurgeExpired（F-204，注入当前时间的 30 天清
 
 describe('noteRepository 回收站能力（F-204）', () => {
   it('restore 只清软删标记：folderId、tags、pinned 原样保留（验收要点）', async () => {
-    await db.notes.put(makeNote('n1', NOW, { folderId: 'f1', tags: ['工作', '随手记'], pinned: true }))
+    await seedNote(makeNote('n1', NOW, { folderId: 'f1', tags: ['工作', '随手记'], pinned: true }))
     await noteRepository.restore('n1')
     const restored = await noteRepository.get('n1')
     expect(restored?.trashed).toBe(false)
@@ -66,21 +73,21 @@ describe('noteRepository 回收站能力（F-204）', () => {
   })
 
   it('listTrashed 按进入回收站的时间倒序', async () => {
-    await db.notes.put(makeNote('old', NOW - 10 * DAY))
-    await db.notes.put(makeNote('new', NOW))
+    await seedNote(makeNote('old', NOW - 10 * DAY))
+    await seedNote(makeNote('new', NOW))
     expect((await noteRepository.listTrashed()).map((n) => n.id)).toEqual(['new', 'old'])
   })
 
   it('deleteForever 物理删除，彻底不可见', async () => {
-    await db.notes.put(makeNote('n1', NOW))
+    await seedNote(makeNote('n1', NOW))
     await noteRepository.deleteForever('n1')
     expect(await noteRepository.get('n1')).toBeUndefined()
   })
 
   it('purgeExpiredBefore 只清理过期条目，30 天内的保留', async () => {
-    await db.notes.put(makeNote('expired', NOW - 40 * DAY))
-    await db.notes.put(makeNote('fresh', NOW - 1 * DAY))
-    await db.notes.put(makeNote('active', null))
+    await seedNote(makeNote('expired', NOW - 40 * DAY))
+    await seedNote(makeNote('fresh', NOW - 1 * DAY))
+    await seedNote(makeNote('active', null))
     expect(await noteRepository.purgeExpiredBefore(trashCutoff(NOW))).toBe(1)
     expect(await noteRepository.get('expired')).toBeUndefined()
     expect(await noteRepository.get('fresh')).toBeDefined()
@@ -88,8 +95,8 @@ describe('noteRepository 回收站能力（F-204）', () => {
   })
 
   it('emptyTrash 清空回收站但不影响未删除笔记', async () => {
-    await db.notes.put(makeNote('n1', NOW - 5 * DAY))
-    await db.notes.put(makeNote('n2', null))
+    await seedNote(makeNote('n1', NOW - 5 * DAY))
+    await seedNote(makeNote('n2', null))
     await noteRepository.emptyTrash()
     expect(await noteRepository.get('n1')).toBeUndefined()
     expect(await noteRepository.get('n2')).toBeDefined()

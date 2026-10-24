@@ -5,13 +5,13 @@ import { createPinia, setActivePinia } from 'pinia'
 import { db } from '@/lib/db/db'
 import { useNotesStore } from '@/features/notes/stores/notes'
 import { useFoldersStore } from '@/features/folders/stores/folders'
-import type { Note } from '@/types'
+import type { NoteMeta } from '@/types'
 
-function makeNote(id: string, trashedAt: number | null): Note {
+function makeMeta(id: string, trashedAt: number | null): NoteMeta {
   return {
     id,
     title: `标题-${id}`,
-    content: '内容',
+    excerpt: '内容',
     folderId: null,
     tags: [],
     pinned: false,
@@ -22,12 +22,18 @@ function makeNote(id: string, trashedAt: number | null): Note {
   }
 }
 
+/** 直写数据库的种子：元数据 + 正文两行（F-523 分离后的存储形态） */
+async function seedNote(id: string, trashedAt: number | null, content = '内容'): Promise<void> {
+  await db.notes.put(makeMeta(id, trashedAt))
+  await db.contents.put({ id, content })
+}
+
 const DAY = 86_400_000
 const NOW = 1_700_000_000_000
 
 beforeEach(async () => {
   setActivePinia(createPinia())
-  await Promise.all([db.notes.clear(), db.folders.clear()])
+  await Promise.all([db.notes.clear(), db.folders.clear(), db.contents.clear()])
 })
 
 describe('notesStore（v0.2 store 编排）', () => {
@@ -99,13 +105,35 @@ describe('notesStore（v0.2 store 编排）', () => {
   })
 
   it('autopurge（F-204）物理删除 30 天前的回收站条目且不影响列表', async () => {
-    await db.notes.put(makeNote('old', NOW - 40 * DAY))
-    await db.notes.put(makeNote('fresh', NOW - 1 * DAY))
+    await seedNote('old', NOW - 40 * DAY)
+    await seedNote('fresh', NOW - 1 * DAY)
 
     const notesStore = useNotesStore()
     await notesStore.autopurge(NOW)
     await notesStore.init()
     expect(notesStore.trashedNotes.map((note) => note.id)).toEqual(['fresh'])
     expect(await db.notes.get('old')).toBeUndefined()
+    expect(await db.contents.get('old')).toBeUndefined()
+  })
+
+  it('saveChanges（F-523）写入元数据与正文两表，正文不在列表行中', async () => {
+    const notesStore = useNotesStore()
+    await notesStore.init()
+    await notesStore.createNote()
+    const id = notesStore.notes[0]!.id
+
+    await notesStore.saveChanges(id, { title: '新标题', content: '# 正文\n\n内容多多' })
+    expect(notesStore.notes[0]).toMatchObject({ title: '新标题', excerpt: '正文 内容多多' })
+    expect(await db.contents.get(id)).toEqual({ id, content: '# 正文\n\n内容多多' })
+    expect(notesStore.notes[0]).not.toHaveProperty('content')
+  })
+
+  it('loadContent（F-523）按需读取正文并缓存', async () => {
+    await seedNote('n1', null, 'Hello 世界')
+    const notesStore = useNotesStore()
+    await notesStore.init()
+    expect(await notesStore.loadContent('n1')).toBe('Hello 世界')
+    // 二次读取命中缓存（行为等价：结果一致）
+    expect(await notesStore.loadContent('n1')).toBe('Hello 世界')
   })
 })

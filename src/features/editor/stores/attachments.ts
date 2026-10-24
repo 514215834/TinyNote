@@ -41,8 +41,12 @@ export const useAttachmentsStore = defineStore('attachments', () => {
    */
   async function pruneOrphans(noteId: string, keepContents: string[]): Promise<void> {
     if (loadedForNoteId.value !== noteId) return
-    const existing = await attachmentRepository.listByNote(noteId)
-    const orphanIds = orphanAttachmentIds(existing, keepContents)
+    // 只取 id 不读 Blob（F-523）：附件本体可能很大，判定孤儿只需要主键集合
+    const existingIds = await attachmentRepository.listIdsByNote(noteId)
+    const orphanIds = orphanAttachmentIds(
+      existingIds.map((id) => ({ id })),
+      keepContents,
+    )
     if (orphanIds.length === 0) return
     await attachmentRepository.deleteByIds(orphanIds)
     for (const id of orphanIds) {

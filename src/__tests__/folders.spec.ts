@@ -4,13 +4,13 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '@/lib/db/db'
 import { folderRepository } from '@/lib/db/repositories/folderRepository'
 import { makeFolder } from '@/features/folders/folders'
-import type { Note } from '@/types'
+import type { NoteMeta } from '@/types'
 
-function makeNote(id: string, folderId: string | null): Note {
+function makeNote(id: string, folderId: string | null): NoteMeta {
   return {
     id,
     title: `标题-${id}`,
-    content: '内容',
+    excerpt: '内容',
     folderId,
     tags: ['工作'],
     pinned: false,
@@ -24,6 +24,7 @@ function makeNote(id: string, folderId: string | null): Note {
 beforeEach(async () => {
   await db.notes.clear()
   await db.folders.clear()
+  await db.contents.clear()
 })
 
 describe('folderRepository（F-201，经 fake-indexeddb 走真实 Dexie 路径）', () => {
@@ -49,6 +50,6 @@ describe('folderRepository（F-201，经 fake-indexeddb 走真实 Dexie 路径�
   })
 })
 
-async function noteById(id: string): Promise<Note | undefined> {
+async function noteById(id: string): Promise<NoteMeta | undefined> {
   return db.notes.get(id)
 }

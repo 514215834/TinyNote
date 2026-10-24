@@ -47,3 +47,31 @@ export function formatBytes(bytes: number): string {
   } while (value >= 1024 && unit < units.length - 1)
   return `${value.toFixed(1)} ${units[unit]}`
 }
+
+/** 离线缓存（Cache Storage）条目摘要：缓存名 → 条目数；环境不支持时返回 null（F-522） */
+export async function listCacheSummary(): Promise<{ name: string; entries: number }[] | null> {
+  if (typeof caches === 'undefined') return null
+  try {
+    const names = await caches.keys()
+    return await Promise.all(
+      names.map(async (name) => ({ name, entries: await (await caches.open(name)).keys().then((keys) => keys.length) })),
+    )
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 清空离线缓存（F-522）：删除全部 Cache Storage（PWA 预缓存会在下次 SW 激活时自动回填）。
+ * 返回删除的缓存个数；环境不支持时返回 null。
+ */
+export async function clearAppCaches(): Promise<number | null> {
+  if (typeof caches === 'undefined') return null
+  try {
+    const names = await caches.keys()
+    await Promise.all(names.map((name) => caches.delete(name)))
+    return names.length
+  } catch {
+    return null
+  }
+}

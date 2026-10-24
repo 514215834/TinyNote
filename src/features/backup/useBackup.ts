@@ -56,7 +56,8 @@ export function useBackup() {
   /** 全部笔记导出为 .md zip（F-304）：只含未删除笔记，面向通用可读，不用于还原 */
   async function exportNotesZip(): Promise<void> {
     await withBusy(async () => {
-      const [notes, folders] = await Promise.all([noteRepository.listActive(), folderRepository.list()])
+      // 导出确需正文：元数据 join contents（F-523）
+      const [notes, folders] = await Promise.all([noteRepository.listActiveWithContent(), folderRepository.list()])
       const folderById = new Map(folders.map((folder) => [folder.id, folder]))
       const entries: Record<string, Uint8Array> = {}
       notes.forEach((note, index) => {
