@@ -87,9 +87,7 @@ function importErrorMessage(error: unknown): string {
 </script>
 
 <template>
-  <header
-    class="relative z-20 flex h-14 shrink-0 items-center justify-between border-b border-white/50 bg-white/45 px-5 backdrop-blur-2xl backdrop-saturate-150 dark:border-white/8 dark:bg-neutral-900/45"
-  >
+  <header class="glass flex h-14 shrink-0 items-center justify-between rounded-2xl px-5">
     <span class="flex items-center gap-2 text-sm font-bold tracking-wide">
       <span class="flex h-6 w-6 items-center justify-center rounded-lg bg-gradient-to-br from-accent to-accent-strong text-[13px] text-white shadow-sm">T</span>
       TinyNote
