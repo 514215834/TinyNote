@@ -94,7 +94,10 @@ function importErrorMessage(error: unknown): string {
 </script>
 
 <template>
-  <header class="glass flex h-14 shrink-0 items-center justify-between rounded-2xl px-5">
+  <!-- z-30：.glass 的 backdrop-filter 使 header 自成 stacking context，内部浮层（数据菜单 z-20）的
+       层级出不了 header；显式抬高整层（> 横幅 z-10 / 主区 z-auto，低于命令面板与设置面板 z-40），
+       保证数据菜单下拉伸出 header 底边的部分不被 BackupBanner 与主内容区遮挡 -->
+  <header class="glass z-30 flex h-14 shrink-0 items-center justify-between rounded-2xl px-5">
     <span class="flex items-center gap-2 text-sm font-bold tracking-wide">
       <span class="flex h-6 w-6 items-center justify-center rounded-lg bg-gradient-to-br from-accent to-accent-strong text-[13px] text-white shadow-sm">T</span>
       TinyNote
