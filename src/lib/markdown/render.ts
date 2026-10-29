@@ -5,6 +5,7 @@ import taskLists from 'markdown-it-task-lists'
 import { ATTACHMENT_SCHEME } from './attachmentRef'
 import { assignHeadingIds } from './outline'
 import { t } from '@/lib/i18n'
+import { renderWikiLinkHtml } from '@/features/links/wikilinks'
 
 /** renderMarkdown 的环境参数：附件 id → blob URL 映射（F-303 预览解析） */
 export interface MarkdownRenderEnv {
@@ -36,6 +37,30 @@ md.renderer.rules.link_open = (tokens, idx, options, _env, self) => {
 
 // F-302：为标题写入与大纲一致的 id，作为点击跳转的锚点（id 由纯函数生成，不受源文本控制）
 md.core.ruler.push('tinynote_heading_anchor', (state) => assignHeadingIds(state.tokens))
+
+// F-701：双链内联规则。注册在 link 之前——扫描 text token，遇到 `[[标题]]` /
+// `[[标题|别名]]` 时切成 wikilink token（meta 携带 target/alias），由 renderer 拼
+// 预览锚点（转义不可信输入）。codespan/fence 是独立 token，行内代码与代码块内不触发。
+md.inline.ruler.before('link', 'wikilink', (state, silent) => {
+  const src = state.src
+  const pos = state.pos
+  if (src.charCodeAt(pos) !== 0x5b /* [ */ || src.charCodeAt(pos + 1) !== 0x5b) return false
+  const end = src.indexOf(']]', pos + 2)
+  if (end === -1) return false
+  const inner = src.slice(pos + 2, end)
+  if (inner.includes('\n')) return false
+  const sep = inner.indexOf('|')
+  const target = (sep === -1 ? inner : inner.slice(0, sep)).trim()
+  if (target === '' || target.length > 200) return false
+  if (silent) return true
+  const token = state.push('wikilink', '', 0)
+  token.meta = { target, alias: sep === -1 ? null : inner.slice(sep + 1).trim() || null }
+  return true
+})
+md.renderer.rules.wikilink = (tokens, idx) => {
+  const meta = tokens[idx].meta as { target: string; alias: string | null }
+  return renderWikiLinkHtml({ target: meta.target, alias: meta.alias, at: 0 })
+}
 
 // F-306：任务列表（复选框只读，不接受用户 HTML）与脚注
 md.use(taskLists)

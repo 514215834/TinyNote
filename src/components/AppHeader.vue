@@ -8,6 +8,8 @@ import { useBackup } from '@/features/backup/useBackup'
 import { BackupFormatError, BackupVersionError } from '@/features/backup/backup'
 import { useNotesStore } from '@/features/notes/stores/notes'
 import { useFoldersStore } from '@/features/folders/stores/folders'
+import { discardIndex, scheduleIndexBuild } from '@/features/search/searchIndex'
+import { discardLinks, scheduleLinksBuild } from '@/features/links/linkIndex'
 
 const router = useRouter()
 const settings = useSettingsStore()
@@ -67,9 +69,13 @@ async function onImportFileChange(event: Event): Promise<void> {
   if (!confirmed) return
   try {
     const result = await importBackupFile(file)
-    // 覆盖式恢复后，所有正在展示的列表与选中态一并刷新
+    // 覆盖式恢复后，所有正在展示的列表与选中态一并刷新；派生索引整库过期，择机重建
     await notesStore.reload()
     await foldersStore.init()
+    discardIndex()
+    scheduleIndexBuild(notesStore.notes.length)
+    discardLinks()
+    scheduleLinksBuild()
     window.alert(
       t('header.restoreDone', { notes: result.notes, folders: result.folders, attachments: result.attachments }),
     )

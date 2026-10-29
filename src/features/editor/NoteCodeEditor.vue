@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { Codemirror } from 'vue-codemirror'
 import type { EditorView } from '@codemirror/view'
 import { createMarkdownExtensions } from './setup'
+import type { WikiLinkCandidate } from './wikilinkComplete'
 
 /**
  * CodeMirror 6 编辑器封装（F-301，ADR-004）：
@@ -15,6 +16,8 @@ const props = defineProps<{
   lineNumbers: boolean
   /** 跟随暗色模式切换编辑器主题 */
   dark: boolean
+  /** 双链候选注入器（F-701），缺省不挂补全 */
+  getLinkCandidates?: () => readonly WikiLinkCandidate[]
 }>()
 
 const emit = defineEmits<{
@@ -27,6 +30,7 @@ const extensions = computed(() =>
   createMarkdownExtensions({
     lineNumbers: props.lineNumbers,
     dark: props.dark,
+    getLinkCandidates: props.getLinkCandidates,
   }),
 )
 </script>

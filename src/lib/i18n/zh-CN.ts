@@ -91,6 +91,25 @@ registerDictionary('zh-CN', {
   'trash.deleteForeverConfirm': '彻底删除「{title}」？此操作不可恢复。',
   'trash.emptyConfirm': '清空回收站？其中所有笔记将被彻底删除。',
 
+  /* 双链（F-701/F-702） */
+  'links.panelTab': '链接',
+  'links.panelAria': '链接面板（出入链接）',
+  'links.sidebarAria': '编辑器侧栏',
+  'links.backlinks': '反向链接',
+  'links.outlinks': '出链',
+  'links.loading': '索引构建中…',
+  'links.emptyBacklinks': '还没有笔记链接到本篇',
+  'links.emptyOutlinks': '本篇还没有出链',
+  'links.broken': '断链',
+  'links.outlineEmpty': '本篇没有大纲',
+  'links.outlinePreviewHint': '切换到预览模式查看大纲',
+  'links.sameTitle': '「{title}」有 {n} 篇同名笔记',
+  'links.sameTitlePick': '点击选择要打开的笔记',
+  'links.sameTitleAria': '选择同名笔记',
+  'links.renameRefs': '标题已更名，{n} 处「[[{old}]]」引用待更新',
+  'links.updateRefs': '更新全部引用',
+  'links.renameDismiss': '忽略（保留旧引用）',
+
   /* 命令面板（F-524/F-603） */
   'palette.dialogAria': '全局搜索',
   'palette.placeholder': '搜索标题、标签与正文…',
@@ -102,11 +121,26 @@ registerDictionary('zh-CN', {
   /* 命令注册（F-603） */
   'commands.newNote': '新建笔记',
   'commands.openTrash': '打开回收站',
+  'commands.openGraph': '打开关系图谱',
   'commands.toggleTheme': '切换深浅色',
   'commands.toggleLineNumbers': '显示/隐藏行号',
   'commands.openSettings': '打开设置',
   'commands.exportBackup': '导出全量备份',
   'commands.switchLanguage': '切换中/English',
+
+  /* 关系图谱（F-703） */
+  'graph.title': '关系图谱',
+  'graph.back': '返回笔记',
+  'graph.nodesCount': '{nodes} 节点 · {edges} 边',
+  'graph.scopeSubset': '当前子集',
+  'graph.scopeAll': '全库',
+  'graph.scopeAria': '渲染范围',
+  'graph.truncated': '节点过多，仅保留链接度最高的 {limit} 篇',
+  'graph.limitWarn': '全库 {n} 篇，超过 {limit} 节点阈值，交互可能卡顿',
+  'graph.confirmAll': '全库共 {n} 篇笔记，将一次性渲染全部节点；超过 {limit} 篇时渲染可能卡顿甚至暂时冻结页面。仍要继续？',
+  'graph.empty': '还没有笔记可绘制',
+  'graph.emptyFiltered': '当前过滤范围内没有笔记',
+  'graph.resetView': '复位视图',
 
   /* 顶栏数据菜单 */
   'header.dataTitle': '数据：备份导出 / 导入',

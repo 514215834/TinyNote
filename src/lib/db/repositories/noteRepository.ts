@@ -1,6 +1,7 @@
 import { db } from '../db'
 import type { Note, NoteMeta } from '@/types'
 import { makeExcerpt } from '@/features/notes/notes'
+import { replaceTitleRefs } from '@/features/links/wikilinks'
 
 /** 笔记数据访问：组件与 store 不直接触碰 IndexedDB，一律经此层（架构文档 3.2）。
  *  F-523 起列表只读元数据（NoteMeta），正文按需走 getContent / saveWithContent。 */
@@ -99,5 +100,36 @@ export const noteRepository = {
   toNote(meta: NoteMeta, content: string): Note {
     const { excerpt: _excerpt, ...rest } = meta
     return { ...rest, tags: [...meta.tags], content }
+  },
+
+  /**
+   * F-701 重命名迁移：全库替换 `[[旧标题]]` 引用为 `[[新标题]]`（保留别名）。
+   * 单事务覆盖 notes/contents——任一步失败整体回滚，不产生半更新状态。
+   * 命中的笔记同步重算 excerpt（标题回退口径依赖它）。回收站笔记一并处理：
+   * 恢复后引用语义复原。返回值携带受影响笔记 id，供上层增量维护搜索/链接索引。
+   */
+  async replaceTitleReferences(
+    oldTitle: string,
+    newTitle: string,
+  ): Promise<{ touched: number; ids: string[] }> {
+    let touched = 0
+    const ids: string[] = []
+    await db.transaction('rw', db.notes, db.contents, async () => {
+      const updates: Array<{ id: string; content: string }> = []
+      await db.contents.each((row) => {
+        const { content, count } = replaceTitleRefs(row.content, oldTitle, newTitle)
+        if (count > 0) {
+          updates.push({ id: row.id, content })
+          touched += count
+          ids.push(row.id)
+        }
+      })
+      for (const update of updates) {
+        await db.contents.put({ id: update.id, content: update.content })
+        const meta = await db.notes.get(update.id)
+        if (meta !== undefined) await this.saveMeta({ ...meta, excerpt: makeExcerpt(update.content) })
+      }
+    })
+    return { touched, ids }
   },
 }

@@ -19,6 +19,7 @@ import { displayTitle } from '@/features/notes/notes'
 import { t, locale, setLocale } from '@/lib/i18n'
 import { measureStartup } from '@/lib/perf'
 import { scheduleIndexBuild } from '@/features/search/searchIndex'
+import { scheduleLinksBuild } from '@/features/links/linkIndex'
 import { useHotkeys } from '@/composables/shortcuts'
 
 const router = useRouter()
@@ -47,6 +48,7 @@ async function bootstrap(): Promise<void> {
   registerBuiltinCommands()
   measureStartup('ready')
   scheduleIndexBuild(notesStore.notes.length)
+  scheduleLinksBuild() // F-702：链接索引空闲补建（反链/补全/后续图谱的派生数据源）
   void syncStore.autoSyncIfDue()
 }
 
@@ -68,6 +70,12 @@ function registerBuiltinCommands(): void {
       title: () => t('commands.openTrash'),
       keywords: 'trash recycle 回收站',
       run: () => router.push({ name: 'trash' }),
+    },
+    {
+      id: 'nav.graph',
+      title: () => t('commands.openGraph'),
+      keywords: 'graph links network 图谱 链接 网络 关系',
+      run: () => router.push({ name: 'graph' }),
     },
     {
       id: 'theme.toggle',

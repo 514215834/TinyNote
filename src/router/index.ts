@@ -8,5 +8,11 @@ export default createRouter({
   routes: [
     { path: '/', name: 'notes', component: NotesView },
     { path: '/trash', name: 'trash', component: TrashView }, // F-204 回收站
+    // F-703 关系图谱：视图按需加载（E-01 打包拆分纪律——重功能一律独立分包惰性加载）
+    {
+      path: '/graph',
+      name: 'graph',
+      component: () => import('@/features/links/GraphView.vue'),
+    },
   ],
 })

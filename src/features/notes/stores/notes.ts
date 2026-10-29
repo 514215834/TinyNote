@@ -6,6 +6,7 @@ import { noteRepository } from '@/lib/db/repositories/noteRepository'
 import { makeExcerpt } from '@/features/notes/notes'
 import { trashCutoff } from '@/features/trash/trash'
 import { discardIndex, indexNote, removeFromIndex, scheduleIndexBuild } from '@/features/search/searchIndex'
+import { discardLinks, removeLinks, scheduleLinksBuild, updateLinks } from '@/features/links/linkIndex'
 
 export const useNotesStore = defineStore('notes', () => {
   /** 元数据列表（F-523 正文分离）：不含正文，正文经 loadContent 按需读取 */
@@ -53,6 +54,8 @@ export const useNotesStore = defineStore('notes', () => {
     await reload()
     discardIndex() // 整库被同步改写：索引整体过期，择机重建
     scheduleIndexBuild(notes.value.length)
+    discardLinks() // F-702：链接索引同原则——整库改写后丢弃，择机重建
+    scheduleLinksBuild()
   }
 
   async function init(): Promise<void> {
@@ -86,6 +89,32 @@ export const useNotesStore = defineStore('notes', () => {
     notes.value = [note, ...notes.value]
     selectedId.value = note.id
     indexNote(note.id, '', '') // F-604：空文档先进索引，保存路径随后增量更新
+    updateLinks(note.id, '', '') // F-702：空文档先登记链接索引，保存路径随后增量更新
+  }
+
+  /**
+   * F-701：双链点击「新建同名笔记」消除断链——以指定标题创建空笔记并选中。
+   * 与 createNote 同构，仅标题预填（正文留空交给编辑器）。
+   */
+  async function createNoteWithTitle(noteTitle: string): Promise<void> {
+    const now = Date.now()
+    const note: NoteMeta = {
+      id: createId(),
+      title: noteTitle.trim(),
+      excerpt: makeExcerpt(''),
+      folderId: activeFolderId.value,
+      tags: [],
+      pinned: false,
+      trashed: false,
+      trashedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    }
+    await noteRepository.saveWithContent(note, '')
+    notes.value = [note, ...notes.value]
+    selectedId.value = note.id
+    indexNote(note.id, note.title, '')
+    updateLinks(note.id, note.title, '')
   }
 
   /**
@@ -103,6 +132,7 @@ export const useNotesStore = defineStore('notes', () => {
     // 刚写入的正文进入缓存，编辑器随后的 loadContent 命中缓存
     contentCache = { id, content: patch.content }
     indexNote(id, patch.title, patch.content) // F-604：倒排索引增量更新
+    updateLinks(id, patch.title, patch.content) // F-702：链接索引增量更新
   }
 
   /** F-202：整表写入标签（去重与解析由调用方完成）；无变化时跳过写库 */
@@ -139,6 +169,7 @@ export const useNotesStore = defineStore('notes', () => {
     trashedNotes.value = await noteRepository.listTrashed()
     if (selectedId.value === id) selectedId.value = notes.value[0]?.id ?? null
     removeFromIndex(id) // F-604：回收站中的笔记不参与全文检索
+    removeLinks(id) // F-702：回收站中的笔记不产生有效反链（索引排除口径）
   }
 
   /** F-204：从回收站恢复；folderId/tags/pinned 原样保留（由 repository.restore 保证） */
@@ -152,6 +183,7 @@ export const useNotesStore = defineStore('notes', () => {
     await noteRepository.deleteForever(id)
     trashedNotes.value = trashedNotes.value.filter((note) => note.id !== id)
     removeFromIndex(id)
+    removeLinks(id)
   }
 
   async function emptyTrash(): Promise<void> {
@@ -166,14 +198,34 @@ export const useNotesStore = defineStore('notes', () => {
     await noteRepository.purgeExpiredBefore(trashCutoff(now))
   }
 
-  /** F-604：按库中当前状态重建单篇的索引条目（恢复路径用） */
+  /** F-604/F-702：按库中当前状态重建单篇的索引条目（恢复路径用） */
   async function reindexNote(id: string): Promise<void> {
     const meta = await noteRepository.get(id)
     if (meta === undefined || meta.trashed) {
       removeFromIndex(id)
+      removeLinks(id)
       return
     }
-    indexNote(id, meta.title, await noteRepository.getContent(id))
+    const content = await noteRepository.getContent(id)
+    indexNote(id, meta.title, content)
+    updateLinks(id, meta.title, content)
+  }
+
+  /**
+   * F-701 重命名迁移编排：全库把 `[[旧标题]]` 替换为 `[[新标题]]`（repository 单事务，
+   * 失败不落库）。命中笔记的正文已被改写——清正文缓存、按篇重录搜索索引，
+   * 链接索引整批过期择机重建，最后刷新列表（excerpt 已随迁移重算）。
+   */
+  async function renameReferences(oldTitle: string, newTitle: string): Promise<number> {
+    const { touched, ids } = await noteRepository.replaceTitleReferences(oldTitle, newTitle)
+    if (ids.length === 0) return 0
+    contentCache = null
+    contentPromises.clear()
+    for (const id of ids) void reindexNote(id)
+    discardLinks()
+    scheduleLinksBuild()
+    await reload()
+    return touched
   }
 
   function setFolderFilter(folderId: string | null): void {
@@ -208,6 +260,7 @@ export const useNotesStore = defineStore('notes', () => {
     init,
     reload,
     createNote,
+    createNoteWithTitle,
     saveChanges,
     setTags,
     togglePin,
@@ -217,6 +270,7 @@ export const useNotesStore = defineStore('notes', () => {
     deleteForever,
     emptyTrash,
     autopurge,
+    renameReferences,
     setFolderFilter,
     toggleTagFilter,
     onFolderDeleted,

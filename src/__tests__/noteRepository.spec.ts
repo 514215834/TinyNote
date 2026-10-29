@@ -124,4 +124,39 @@ describe('noteRepository（F-107，经 fake-indexeddb 走真实 Dexie 路径）'
     expect(purged).toBe(1)
     expect(await db.contents.get('n1')).toBeUndefined()
   })
+
+  describe('replaceTitleReferences（F-701 重命名迁移）', () => {
+    it('全库替换引用并保留别名；返回受影响笔记 id；excerpt 重算', async () => {
+      await seed(makeNote('n1', 100))
+      await db.contents.put({ id: 'n1', content: '引用 [[标题-n2|备注]] 与 [[标题-n2]]' })
+      await seed(makeNote('n2', 100))
+      await seed(makeNote('n3', 100))
+      await db.contents.put({ id: 'n3', content: '无关正文' })
+
+      const { touched, ids } = await noteRepository.replaceTitleReferences('标题-n2', '改名-n2')
+      expect(touched).toBe(2)
+      expect(ids).toEqual(['n1'])
+      expect(await noteRepository.getContent('n1')).toBe('引用 [[改名-n2|备注]] 与 [[改名-n2]]')
+      // excerpt 随新正文重算（列表摘要口径依赖它；makeExcerpt 会剥去 - 等标记符号）
+      expect((await noteRepository.get('n1'))?.excerpt).toContain('[[改名 n2 备注]]')
+    })
+
+    it('回收站笔记的正文一并迁移（恢复后引用语义复原）', async () => {
+      await seed(makeNote('n1', 100, true))
+      await db.contents.put({ id: 'n1', content: '引用 [[标题-n2]]' })
+      await seed(makeNote('n2', 100))
+
+      const { touched } = await noteRepository.replaceTitleReferences('标题-n2', '改名-n2')
+      expect(touched).toBe(1)
+      expect(await noteRepository.getContent('n1')).toBe('引用 [[改名-n2]]')
+    })
+
+    it('无命中时返回空结果且不改写任何正文', async () => {
+      await seed(makeNote('n1', 100))
+      const { touched, ids } = await noteRepository.replaceTitleReferences('不存在', '新标题')
+      expect(touched).toBe(0)
+      expect(ids).toEqual([])
+      expect(await noteRepository.getContent('n1')).toBe('内容-n1')
+    })
+  })
 })

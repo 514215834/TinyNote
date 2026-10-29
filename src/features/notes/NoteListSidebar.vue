@@ -60,9 +60,10 @@ const listEmptyText = computed(() =>
 )
 
 const inTrash = computed(() => router.currentRoute.value.name === 'trash')
+const inGraph = computed(() => router.currentRoute.value.name === 'graph')
 
 function openNotesView(): void {
-  if (inTrash.value) void router.push({ name: 'notes' })
+  if (inTrash.value || inGraph.value) void router.push({ name: 'notes' })
 }
 
 async function createNote(): Promise<void> {
@@ -562,34 +563,56 @@ const listRows = computed<ListItemRow[]>(() => {
       </div>
     </nav>
 
-    <!-- 回收站入口（F-204） -->
-    <div class="shrink-0 border-t border-gray-900/8 px-2 py-2 dark:border-white/8">
+    <!-- 底部入口（F-204 回收站 / F-703 关系图谱） -->
+    <div class="flex shrink-0 gap-1 border-t border-gray-900/8 px-2 py-2 dark:border-white/8">
       <button
         type="button"
-        class="flex w-full items-center justify-between rounded-xl px-3 py-1.5 text-sm transition-colors"
+        class="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-xl px-3 py-1.5 text-sm transition-colors"
         :class="inTrash ? 'bg-white/80 shadow-sm dark:bg-white/10' : 'hover:bg-white/55 dark:hover:bg-white/5'"
         :aria-label="t('sidebar.openTrashAria')"
         @click="router.push({ name: 'trash' })"
       >
-        <span class="flex items-center gap-2">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="text-gray-400"
-          >
-            <polyline points="3 6 5 6 21 6" />
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-          </svg>
-          {{ t('sidebar.trash') }}
-        </span>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="shrink-0 text-gray-400"
+        >
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+        </svg>
+        {{ t('sidebar.trash') }}
         <span class="text-[11px] text-gray-400">{{ notesStore.trashedNotes.length }}</span>
+      </button>
+      <button
+        type="button"
+        class="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-xl px-3 py-1.5 text-sm transition-colors"
+        :class="inGraph ? 'bg-white/80 shadow-sm dark:bg-white/10' : 'hover:bg-white/55 dark:hover:bg-white/5'"
+        :aria-label="t('graph.title')"
+        @click="router.push({ name: 'graph' })"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="shrink-0 text-gray-400"
+        >
+          <circle cx="5" cy="6" r="3" /><circle cx="19" cy="6" r="3" /><circle cx="12" cy="18" r="3" />
+          <path d="M7.5 7.5 10 15.5M16.5 7.5 14 15.5M8 6h8" />
+        </svg>
+        {{ t('graph.title') }}
       </button>
     </div>
   </aside>

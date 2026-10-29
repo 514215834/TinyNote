@@ -1,4 +1,4 @@
-import MiniSearch from 'minisearch'
+import type MiniSearch from 'minisearch'
 import { db } from '@/lib/db/db'
 import { noteRepository } from '@/lib/db/repositories/noteRepository'
 import type { ContentHit } from './engine'
@@ -34,6 +34,20 @@ export function tokenizeForIndex(text: string): string[] {
   return tokens
 }
 
+/** MiniSearch 构造器类型（仅类型引用，运行时零开销） */
+type MiniSearchClass = typeof import('minisearch').default
+
+let miniSearchCtor: MiniSearchClass | null = null
+
+/**
+ * 库本体惰性加载（E-01 打包拆分）：≤ 5000 篇的小库永不触达该 chunk，
+ * 加载走 buildIndex 已有的异步时点——构建期查询照常回退流式扫描，无功能空窗。
+ */
+async function ensureMiniSearch(): Promise<MiniSearchClass> {
+  miniSearchCtor ??= (await import('minisearch')).default
+  return miniSearchCtor
+}
+
 let index: MiniSearch<IndexedDoc> | null = null
 let building = false
 
@@ -50,8 +64,8 @@ export function isIndexBuilding(): boolean {
   return building
 }
 
-function createIndex(): MiniSearch<IndexedDoc> {
-  return new MiniSearch<IndexedDoc>({
+function createIndex(ctor: MiniSearchClass): MiniSearch<IndexedDoc> {
+  return new ctor({
     fields: ['title', 'content'],
     tokenize: tokenizeForIndex,
     processTerm: (term) => term,
@@ -68,7 +82,7 @@ export async function buildIndex(): Promise<boolean> {
   if (building) return false
   building = true
   try {
-    const fresh = createIndex()
+    const fresh = createIndex(await ensureMiniSearch())
     const metas = await db.notes.toArray()
     const titleById = new Map(metas.filter((meta) => !meta.trashed).map((meta) => [meta.id, meta.title]))
     await db.contents.each((row) => {
