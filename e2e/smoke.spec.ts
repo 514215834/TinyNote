@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { APP_URL } from '../playwright.config'
 
 /**
  * E-02 冒烟（ROADMAP §10.2）：新建 → 编辑 → 刷新存续 → 导出全量备份 →
@@ -27,7 +28,7 @@ async function openDataMenu(page: Page): Promise<void> {
 test('新建 → 编辑 → 刷新存续 → 导出 → 清库 → 备份还原', async ({ page }) => {
   test.setTimeout(120_000)
   await page.addInitScript(() => localStorage.setItem('tinynote:locale', 'zh-CN'))
-  await page.goto('/')
+  await page.goto(APP_URL)
 
   await newNote(page)
   // 失焦立即保存（F-102）：点回标题框让编辑器失焦触发 flush，等「已保存」后再刷新

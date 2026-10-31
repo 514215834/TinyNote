@@ -3,6 +3,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs'
 import { strToU8, zipSync } from 'fflate'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { APP_URL } from '../playwright.config'
 
 /**
  * E-02 导入链路（ROADMAP §10.2）：数据菜单「导入文件」→ F-801 Markdown 批量导入、
@@ -25,7 +26,7 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('F-801：多选 .md 导入——H1 标题、文件名回退、文件夹映射', async ({ page }) => {
-  await page.goto('/')
+  await page.goto(APP_URL)
   const dir = mkdtempSync(join(tmpdir(), 'tinynote-import-'))
   await importFiles(page, [
     { name: '技术笔记.md', bytes: Buffer.from('# 双链笔记\n正文内容') },
@@ -41,7 +42,7 @@ test('F-801：多选 .md 导入——H1 标题、文件名回退、文件夹映�
 })
 
 test('F-801：zip 包（notes/ + assets/）——文件夹创建与图片重链', async ({ page }) => {
-  await page.goto('/')
+  await page.goto(APP_URL)
   // 1×1 PNG
   const png = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
@@ -59,7 +60,7 @@ test('F-801：zip 包（notes/ + assets/）——文件夹创建与图片重链'
 })
 
 test('F-804：Notion 导出包——页面与 csv 数据库每行一篇', async ({ page }) => {
-  await page.goto('/')
+  await page.goto(APP_URL)
   const zip = zipSync({
     '项目页 11111111111111111111111111111111.md': strToU8('页面内容'),
     '项目页 11111111111111111111111111111111/子页 22222222222222222222222222222222.md': strToU8('子页内容'),
@@ -73,7 +74,7 @@ test('F-804：Notion 导出包——页面与 csv 数据库每行一篇', async 
 })
 
 test('不支持类型计入跳过', async ({ page }) => {
-  await page.goto('/')
+  await page.goto(APP_URL)
   await importFiles(page, [{ name: 'readme.docx', bytes: Buffer.from('x') }])
   await expect(page.getByRole('dialog').getByText('跳过 1 项')).toBeVisible()
 })

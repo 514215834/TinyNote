@@ -8,7 +8,13 @@ import { defineConfig, devices } from '@playwright/test'
 
 const PORT = 4173
 const base = process.env.VITE_BASE ?? '/'
-const appUrl = `http://127.0.0.1:${PORT}${base.endsWith('/') ? base : `${base}/`}`
+/**
+ * 应用入口 URL（含子路径）。两个消费点都必须用它：
+ * - webServer.url：vite preview 按 base 服务，就绪检查打根路径会 404 导致 120s 超时（CI 首跑踩坑）；
+ * - 测试导航：Playwright 的相对地址按 new URL(path, baseURL) 解析，goto('/') 会丢掉
+ *   /TinyNote/ 前缀落到 404——一律 goto(APP_URL)，不用以 / 开头的路径。
+ */
+export const APP_URL = `http://127.0.0.1:${PORT}${base.endsWith('/') ? base : `${base}/`}`
 
 export default defineConfig({
   testDir: './e2e',
@@ -17,14 +23,14 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? 'list' : 'list',
   use: {
-    baseURL: appUrl,
+    baseURL: APP_URL,
     trace: 'retain-on-failure',
     locale: 'zh-CN',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
     command: 'npm run preview -- --port 4173 --strictPort',
-    url: `http://127.0.0.1:${PORT}`,
+    url: APP_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
