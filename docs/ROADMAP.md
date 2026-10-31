@@ -26,7 +26,7 @@
 | v1.0 | 打磨 | i18n、命令面板、性能上限 | 已实现 |
 | v1.1 | 知识连接 | 双链 `[[]]`、出入链接面板、关系图谱 | 已实现 |
 | v1.2 | 导入互操作 | Markdown 批量导入、富文本粘贴转 MD、Evernote/Notion 导入器 | 已实现 |
-| v1.3 | 输入扩展 | 浏览器剪藏扩展（MV3）、应用侧剪藏入库 | 规划中 |
+| v1.3 | 输入扩展 | 浏览器剪藏扩展（MV3）、应用侧剪藏入库 | 已实现 |
 | v1.4 | 排版与素材 | 公式/图表渲染、非图片附件、附件管理面板、标签管理 | 规划中 |
 | v2.0 | 本地智能（草案） | WebGPU 本地模型：摘要/标题建议、全库本地问答 | 草案，不承诺排期 |
 
@@ -215,7 +215,7 @@
 
 ---
 
-### 10.3 v1.3 —— 浏览器剪藏扩展（MV3）
+### 10.3 v1.3 —— 浏览器剪藏扩展（MV3）（已实现）
 
 > 目标：网页 → 笔记的最短路径。**无后端约束下选择「产物文件」通道**：扩展把剪藏打成一个 `.md` zip（manifest + 正文 + 图片内联 assets），应用侧用 v1.2 导入管线落库——两端零新增网络依赖，产物天然兼容同步与端到端加密。
 
@@ -228,6 +228,15 @@
 **验收要点**：剪藏一篇含图文章 → 应用导入后图文俱在、元信息行完整；纯文本选区剪藏（无图片）同样成功；断网环境下扩展与导入全链路可完成；重复导入被 F-903 拦截且不产生双份笔记。
 **本版明确不做**：Safari 扩展（MV2 迁移成本）、扩展端自动定时批量剪藏、浏览器内直接写入应用存储（跨源限制，维持文件通道）。
 **工程搭车**：E-02 E2E 扩展「剪藏 → 文件 → 导入 → 渲染」端到端。
+
+**v1.3 实现口径补充**：
+
+- **格式契约与入口分流**：产物 `tinynote-clip-<时间戳>.zip` = `manifest.json`（format `tinynote-clip` / schemaVersion 1 / url / siteName / title / mode / clippedAt）+ `note.md` + `assets/`。装配与解析**共用同一模块**（`extension/src/clip.ts`，应用侧直接 import 同源），E2E 也以该函数生成 fixture——文件通道是扩展与应用之间唯一接口。应用侧**不另设菜单项**：剪藏 zip 经既有「导入文件」/ 整页拖拽进入，store 按内容嗅探自动路由进剪藏弹窗，其余走常规导入；混合拖入时常规导入先行、剪藏包排队逐个弹窗（模态队列，剪藏弹窗覆盖常规摘要，处理完剪藏层才可达摘要层）。
+- **F-901 口径**：三模式——正文（@mozilla/readability 正文提取，失败回落整页）、整页、选区（无选区报错）。提取在 content script 内**净化 + 绝对化**（剥 script/style/iframe 等非正文元素、img/a 地址改绝对、去 srcset）后交扩展页转换——html→md **直接 import 应用的 htmlToMarkdown 内核**（turndown + GFM，同一模块零分叉）。图片两路抓取：`data:` 内嵌图本地解码落 assets；http(s) 经 background Service Worker 抓取（host_permissions 授权下无 CORS 限制，内容脚本受页面 CORS 约束），超 10MB（与应用附件上限一致）或抓取失败保留外链（导入侧与 F-801 未命中资源口径一致）。入口：工具栏弹窗（三选，模式记忆 chrome.storage.local）+ 右键菜单「剪藏到 TinyNote」（打开 clipper 页自动正文剪藏，成功自关）。权限面：activeTab + scripting 按需注入，host_permissions 仅服务图片抓取；产物经 chrome.downloads 落下载目录。
+- **F-902 口径**：弹窗修正标题（预填扩展提取值）/ 文件夹归属（既有文件夹 + 未分类）/ 标签（默认「剪藏」/ en「clipped」，逗号空格分隔）；元信息以 **blockquote 普通文本行**注入正文首部（来源 / 站点 / 剪藏时间，不新增字段，与 ENEX 来源行同构）；剪藏时间（manifest.clippedAt）作为笔记**创建时间**；落库复用常规导入原语（writeNote/writeImageAttachment），产物即普通笔记/附件——备份、同步、快照、搜索、链接索引全链路天然兼容。
+- **F-903 口径**：指纹 = 产物 zip **全字节 SHA-256**（fflate zipSync 确定性输出，同一产物字节恒定；对同一页面的重新剪藏因 clippedAt 变化属新产物，不误拦）；记录存 settings KV `clipFingerprints`（FIFO 上限 200，导入成功才记录）；命中时琥珀提示、主按钮变「强制重新导入」，强制重入产生第二份（全量插入语义，与常规导入无去重一致）。
+- **工程搭车**：扩展独立构建——esbuild 四入口（background ESM / content script IIFE / popup·clipper ESM 页面），`npm run ext:typecheck` + `npm run ext:build`，产物在 `extension/dist`（加载已解压的扩展程序即可用）；E-02 E2E 扩 3 例（导入渲染 / 防重 / 混合分流）；CI 新增 `extension.yml`——构建 zip 上传 artifact，打 `v*` tag 时附到 GitHub Release（独立于 Pages 的 deploy.yml，不影响部署门禁）。
+- **搭车修复（v1.2 布局反馈）**：顶栏数据菜单下拉被遮挡——`.glass`（backdrop-filter）使 header 自成 stacking context，菜单 `z-20` 出不了 header 层级，下伸部分被 BackupBanner 与主区 `main.glass` 盖住。修复：header 显式抬为 `z-30`（AppHeader.vue）。
 
 ---
 
@@ -268,7 +277,7 @@
 | 编号 | 事项 | 说明 | 挂钩版本 / 触发条件 |
 | --- | --- | --- | --- |
 | E-01 | 打包拆分 | MiniSearch / @tanstack/vue-virtual / i18n 字典动态 import + manualChunks；规划期新增重库（turndown / Readability / KaTeX / Mermaid / 图谱）一律惰性加载；基准：gzip ≤ 0.5MB 不回退 | v1.1 |
-| E-02 | Playwright E2E 首套（**已落地**，v1.2）：冒烟（新建 → 编辑 → 刷新存续 → 导出 → 清库 → 备份还原）+ 导入链路 4 例，`npm run e2e` 跑在构建产物上，已纳入 deploy 流水线门禁 | v1.2 随导入链路扩用例、v1.3 随剪藏扩端到端 | v1.2 起 |
+| E-02 | Playwright E2E 首套（**已落地**，v1.2）：冒烟（新建 → 编辑 → 刷新存续 → 导出 → 清库 → 备份还原）+ 导入链路 4 例，`npm run e2e` 跑在构建产物上，已纳入 deploy 流水线门禁；**v1.3 已随剪藏扩 3 例**（导入渲染 / 防重 / 混合分流） | v1.2 随导入链路扩用例、v1.3 随剪藏扩端到端 | v1.2 起 |
 | E-03 | 增量同步载荷评估 | 附件 base64 +33% 膨胀与 Gist 单文件上限、双端同时同步后写者胜：方案 A 分片多文件 Gist / 方案 B Git Contents API 对象存储；出 ADR 再实施 | v1.4 末决策；触发条件：出现「附件库 > 50MB 同步变慢/触顶」的实际反馈 |
 | E-04 | CJK bigram 索引精度 | 连续匹配精度与索引体积取舍重估（可重建的派生数据，低风险）；双链上线带动笔记量增长后出现精度反馈即评估 | 反馈驱动 |
 | E-05 | F-504 本地文件夹直连转正评估（**v1.2 已决策：继续搁置**）——File System Access API 仍限 Chromium 系；v1.2 导入管线已覆盖「外部 md 库进场」核心收益；双向落盘的冲突面（外部工具改写）与维护成本高于当前反馈价值，留待真实需求再评估 | Chrome/Edge 限定 | 决策已完成，随反馈重启 |

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>剪藏到 TinyNote</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="card">
+      <h1 class="title">剪藏到 TinyNote</h1>
+
+      <fieldset class="modes" role="radiogroup" aria-label="剪藏模式">
+        <label><input type="radio" name="mode" value="article" /> 正文</label>
+        <label><input type="radio" name="mode" value="full" /> 整页</label>
+        <label><input type="radio" name="mode" value="selection" /> 选区</label>
+      </fieldset>
+
+      <button id="clip" class="primary" type="button">剪藏</button>
+
+      <p id="status" class="status" aria-live="polite"></p>
+      <p class="hint">产物 zip 保存到下载目录后，在 TinyNote「导入文件」中完成入库。</p>
+    </main>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>剪藏到 TinyNote</title>
+    <link rel="stylesheet" href="../popup/popup.css" />
+  </head>
+  <body>
+    <main class="card wide">
+      <h1 class="title">剪藏到 TinyNote</h1>
+      <p id="status" class="status" aria-live="polite">正在打开来源页…</p>
+      <div class="actions">
+        <button id="retry" class="primary" type="button" hidden>重试</button>
+        <button id="close" class="ghost" type="button">关闭</button>
+      </div>
+      <p class="hint">产物 zip 保存到下载目录后，在 TinyNote「导入文件」中完成入库。</p>
+    </main>
+    <script type="module" src="clipper.js"></script>
+  </body>
+</html>

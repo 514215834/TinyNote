@@ -1,0 +1,124 @@
+/* 剪藏扩展 UI（popup 与 clipper 页共用）：轻量玻璃卡，与应用观感同族 */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  color: #1f2937;
+  background: linear-gradient(135deg, #eef2ff, #e0e7ff 55%, #f5f3ff);
+}
+
+.card {
+  width: 280px;
+  padding: 16px;
+  margin: 0 auto;
+}
+
+/* clipper 页（右键菜单流程）为整页布局：居中卡片 + 操作行 */
+.card.wide {
+  width: min(420px, 92vw);
+  margin: 18vh auto 0;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.actions .primary {
+  width: auto;
+  flex: 1;
+  padding: 8px 0;
+}
+
+.ghost {
+  padding: 8px 16px;
+  font-size: 13px;
+  color: #374151;
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.title {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.modes {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+}
+
+.modes label {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 4px;
+  font-size: 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.65);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.modes label:has(input:checked) {
+  background: #c7d2fe;
+  font-weight: 600;
+}
+
+.primary {
+  width: 100%;
+  padding: 8px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: #6366f1;
+  border: 0;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.primary:hover {
+  background: #4f46e5;
+}
+
+.primary:disabled {
+  background: #a5b4fc;
+  cursor: default;
+}
+
+.status {
+  min-height: 18px;
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #374151;
+  overflow-wrap: anywhere;
+}
+
+.status.error {
+  color: #b91c1c;
+}
+
+.status.ok {
+  color: #047857;
+}
+
+.hint {
+  margin: 10px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #6b7280;
+}

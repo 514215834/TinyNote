@@ -14,6 +14,7 @@ import UpdateBanner from '@/features/pwa/UpdateBanner.vue'
 import CommandPalette from '@/features/search/CommandPalette.vue'
 import SettingsPanel from '@/features/settings/SettingsPanel.vue'
 import ImportDialog from '@/features/import/ImportDialog.vue'
+import ClipImportDialog from '@/features/clipImport/ClipImportDialog.vue'
 import { useImportStore, isImportableFile } from '@/features/import'
 import { useSyncStore } from '@/features/sync/stores/sync'
 import { useBackup } from '@/features/backup/useBackup'
@@ -197,5 +198,7 @@ useEventListener(window, 'drop', onWindowDrop)
     <SettingsPanel />
     <!-- F-801/F-803/F-804：导入弹窗（统计摘要） -->
     <ImportDialog />
+    <!-- F-902/F-903：剪藏包导入弹窗（标题/文件夹/标签修正 + 防重拦截） -->
+    <ClipImportDialog />
   </div>
 </template>

@@ -33,7 +33,7 @@ const IMAGE_MIME_BY_EXT: Record<string, string> = {
   bmp: 'image/bmp',
 }
 
-function mimeByName(name: string): string | null {
+export function mimeByName(name: string): string | null {
   const ext = (name.split('.').pop() ?? '').toLowerCase()
   return IMAGE_MIME_BY_EXT[ext] ?? null
 }
@@ -68,7 +68,7 @@ function safeDecode(text: string): string {
 }
 
 /** 单篇笔记写入（excerpt 由 repository 统一重算；id 可预生成——附件引用重链需要它） */
-async function writeNote(
+export async function writeNote(
   plan: {
     title: string
     content: string
@@ -100,7 +100,7 @@ async function writeNote(
 }
 
 /** 附件落库（图片白名单 + 10MB 上限）：返回附件引用；不合规返回 null（调用方计入跳过） */
-async function writeImageAttachment(
+export async function writeImageAttachment(
   noteId: string,
   name: string,
   mime: string,
@@ -136,7 +136,7 @@ function failed(summary: ImportSummary, source: string, reason: string): void {
  * 文件夹分配器：按名取 id，已存在复用（同名不重复建）、缺失创建并计数。
  * 现有名册惰性加载一次。
  */
-class FolderAllocator {
+export class FolderAllocator {
   private byName = new Map<string, string>()
   private loaded = false
 
@@ -158,7 +158,7 @@ class FolderAllocator {
 }
 
 /** 图片引用收集（重链前的 href 清单） */
-function collectImageHrefs(content: string): string[] {
+export function collectImageHrefs(content: string): string[] {
   const hrefs: string[] = []
   for (const match of content.matchAll(/!\[([^\]]*)\]\(([^()\s]+)\)/g)) hrefs.push(match[2]!)
   return hrefs

@@ -2,9 +2,51 @@
 
 本文件记录每个版本的功能点（编号见 [ROADMAP](./ROADMAP.md)）、数据 schema 变更与已知问题。
 
-## 未发布
+## v1.3.0（2026-10-31）
 
-- **反馈修复：顶栏数据菜单下拉被遮挡**（导出/导入备份弹层）：`.glass`（backdrop-filter）使 header 自成 stacking context，菜单的 `z-20` 只在 header 内部生效、出不了 header 层级，下伸出 header 底边（约百像素的主体部分）被 BackupBanner（`relative z-10`）与主内容区 `main.glass`（backdrop-filter stacking context，DOM 顺序靠后）盖住且不可点击。修复：header 显式抬为 `z-30`（AppHeader.vue，横幅 z-10 / 主区 z-auto 之上，命令面板与设置面板 z-40、更新横幅 z-50 之下，无新层级冲突）。侧栏内部下拉与 main 的盒子斥排互不重叠，不受此问题影响，未改动。
+浏览器剪藏扩展（MV3）与应用侧剪藏入库：网页 → 笔记的最短路径（F-901/F-902/F-903）。无后端约束下的「产物文件」通道——扩展把剪藏打成 `.md` zip（manifest + 正文 + 图片内联 assets），应用侧按内容识别导入，两端零新增网络依赖，产物天然兼容同步与端到端加密。
+
+### 功能
+
+- **F-901 剪藏扩展本体**：主仓新增 `extension/` 子目录（Manifest V3，Chrome/Edge 先行）：
+  - 剪藏模式三选——**正文**（@mozilla/readability 正文提取，失败回落整页）/ **整页** / **选区**（无选区明确报错）；提取在 content script 内净化 + 绝对化（剥 script/style/iframe 等非正文元素、img/a 地址改绝对、去 srcset）
+  - html→md **直接复用应用的转换内核**（`src/features/import/htmlToMarkdown.ts`，turndown + GFM 同一模块零分叉）
+  - 图片两路抓取落 `assets/`：`data:` 内嵌图本地解码；http(s) 经 background Service Worker 抓取（host_permissions 下无 CORS 限制），超 10MB（与应用附件上限一致）或失败保留外链
+  - 入口：工具栏弹窗（模式记忆）+ 页面右键菜单「剪藏到 TinyNote」（打开 clipper 页自动正文剪藏，成功自关）；产物 `tinynote-clip-<时间戳>.zip`（manifest.json + note.md + assets/）经 chrome.downloads 落下载目录；权限面 activeTab + scripting 按需注入，host_permissions 仅服务图片抓取
+- **F-902 应用侧剪藏入库**：**不另设菜单项**——剪藏 zip 经既有「导入文件」/ 整页拖拽进入，store 按内容嗅探（manifest `format: 'tinynote-clip'`）自动路由进**剪藏导入弹窗**：标题修正（预填扩展提取值）、文件夹归属（既有文件夹 + 未分类）、标签（默认「剪藏」）；元信息以 blockquote 普通文本行注入正文首部（来源 URL / 站点名 / 剪藏时间，不新增字段），剪藏时间作为笔记创建时间；落库复用常规导入原语，产物即普通笔记/附件（备份/同步/快照/搜索/链接索引全链路兼容）
+- **F-903 剪藏防重**：同一剪藏产物重复导入按内容指纹（产物 zip 全字节 SHA-256）拦截——琥珀提示 + 主按钮变「强制重新导入」，允许显式重入（全量插入语义产生第二份）；指纹本地计算存 settings KV（FIFO 上限 200），无服务端；fflate zipSync 确定性输出保证同一产物指纹恒定，同页重剪（时间不同）不误拦
+
+### 修复
+
+- **顶栏数据菜单下拉被遮挡**（v1.2 布局反馈）：`.glass`（backdrop-filter）使 header 自成 stacking context，数据菜单的 `z-20` 只在 header 内部生效、下伸出 header 底边的主体部分被 BackupBanner 与主内容区 `main.glass` 盖住且不可点击。修复：header 显式抬为 `z-30`（AppHeader.vue，横幅 z-10 / 主区之上，命令面板与设置面板 z-40 之下，无新层级冲突）
+
+### 工程线（E-01/E-02，v1.3 搭车）
+
+- **E-02 E2E 扩 3 例**：剪藏 → 文件 → 导入 → 预览渲染端到端（用扩展侧同一装配函数生成真实产物 fixture）、F-903 防重拦截与强制重入、剪藏包与常规包混合导入分流（模态队列顺序）
+- 扩展独立构建：esbuild 四入口（background ESM / content script IIFE / popup·clipper ESM），`npm run ext:typecheck` + `npm run ext:build`，产物在 `extension/dist`（浏览器「加载已解压的扩展程序」即可用）；CI 新增 `extension.yml`——构建 zip 上传 artifact，打 `v*` tag 时附到 GitHub Release（独立于 Pages 的 deploy.yml，不影响部署门禁）
+- E-01 打包纪律：转换/提取依赖（turndown、@mozilla/readability、esbuild）只进扩展产物与 devDependencies，不占应用首屏路径；应用 gzip 合计 **≈498KB，0.5MB 基线保持**（剪藏导入模块并入 index chunk +3KB）
+
+### 数据 schema
+
+- **无变更（仍为 schema v4）**；剪藏产物即普通笔记/附件，备份/同步/快照格式不变
+- settings KV 新增 `clipFingerprints`（剪藏防重指纹，FIFO 200，随「清空全部数据」一并清除）
+
+### 测试
+
+- 新增单测 18 例：clipFile（嗅探识别/非法 manifest 拒绝/损坏 zip 回落/指纹稳定性）、clipImport（元信息块注入/图片重链/剪藏时间落 createdAt/文件夹标签标题/指纹记录与 FIFO 上限）、extension clip 契约面（manifest 校验/文件名净化/图片收集与重链/zip 字节无损往返）
+- 全量 `npm run test:run` **377 用例**通过（较 v1.2 359 例 +18）；`npm run e2e` **8 用例**通过（+3）；`npm run build`（vue-tsc 类型检查前置）通过，PWA 产物正常；`ext:typecheck` + `ext:build` 通过
+
+### 已知问题 / 范围外
+
+- 扩展 UI 当前为中文单语（应用侧 i18n 覆盖不到扩展包；双语随反馈补）
+- Firefox/Safari 未适配（MV3 service worker 事件模型差异，Chrome/Edge 先行，ROADMAP 口径）
+- 未识别 schemaVersion 更高版本的剪藏包会按普通 zip 走常规导入（note.md 被当作普通 Markdown 导入、manifest 忽略）——升级应用后正常，不做特殊阻断
+- 扩展端图片抓取依赖 host_permissions（安装时提示「读取和更改您在所有网站上的数据」），超 10MB 或防盗链图片保留外链不落附件
+- 整页模式对超大 DOM（万级节点）无体积承诺：turndown 转换耗时随正文线性增长，极端页面建议正文/选区模式
+- 剪藏弹窗与常规导入摘要同时出现时为模态队列（剪藏层覆盖摘要层），需先处理剪藏弹窗（E2E 已覆盖该顺序）
+- 扩展产物 zip 的「断网全链路」（剪藏 + 导入）依赖目标页面本身可离线访问，CI 仅覆盖文件通道与应用侧链路
+
+---
 
 ## v1.2.0（2026-10-31）
 
