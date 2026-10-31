@@ -59,10 +59,15 @@ const editorView = shallowRef<EditorView | null>(null)
 // persist 调用时才读取 title/content，因此切换笔记前的待写内容也能被正确保存。
 // 保存成功后追加 F-402 自动快照判定（大变更才落快照）。
 const { schedule, flush, status } = useAutoSave(async () => {
-  if (title.value === props.note.title && content.value === savedContent) return
-  await notesStore.saveChanges(props.note.id, { title: title.value, content: content.value })
-  savedContent = content.value
-  await historyStore.maybeAutoSnapshot(props.note.id, content.value)
+  // 竞态修复（E2E 冒烟发现）：在入口快照草稿，await 恢复后标记的是「本次实际保存的快照」。
+  // 若在保存落库期间继续键入，恢复后 content !== savedContent 仍成立，下次 flush 会补存增量；
+  // 旧写法在 await 后读 content.value，把保存窗口内的新键入误标为已保存，导致正文静默丢失。
+  const titleDraft = title.value
+  const contentDraft = content.value
+  if (titleDraft === props.note.title && contentDraft === savedContent) return
+  await notesStore.saveChanges(props.note.id, { title: titleDraft, content: contentDraft })
+  savedContent = contentDraft
+  await historyStore.maybeAutoSnapshot(props.note.id, contentDraft)
 })
 
 watch([title, content], () => {
