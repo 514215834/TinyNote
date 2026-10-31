@@ -160,6 +160,22 @@ registerDictionary('zh-CN', {
   'import.reasonZipFailed': 'zip 解析失败：{msg}',
   'import.reasonParseFailed': '解析失败：{msg}',
 
+  /* 剪藏导入（F-902/F-903） */
+  'clip.title': '导入剪藏',
+  'clip.working': '正在导入…',
+  'clip.metaSource': '来源：{url}',
+  'clip.metaSite': '站点：{name}',
+  'clip.metaTime': '剪藏时间：{time}',
+  'clip.fieldTitle': '标题',
+  'clip.fieldFolder': '文件夹归属',
+  'clip.folderNone': '未分类',
+  'clip.fieldTags': '标签（逗号/空格分隔）',
+  'clip.defaultTag': '剪藏',
+  'clip.duplicate': '该剪藏之前已导入过（内容指纹一致），再次导入会产生重复笔记。',
+  'clip.confirm': '导入',
+  'clip.confirmForce': '强制重新导入',
+  'clip.cancel': '取消',
+
   /* 顶栏数据菜单 */
   'header.dataTitle': '数据：备份导出 / 导入',
   'header.dataAria': '数据菜单',

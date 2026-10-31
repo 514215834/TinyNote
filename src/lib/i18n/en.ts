@@ -162,6 +162,22 @@ registerDictionary('en', {
   'import.reasonZipFailed': 'Failed to read zip: {msg}',
   'import.reasonParseFailed': 'Failed to parse: {msg}',
 
+  /* Clip import (F-902/F-903) */
+  'clip.title': 'Import clip',
+  'clip.working': 'Importing…',
+  'clip.metaSource': 'Source: {url}',
+  'clip.metaSite': 'Site: {name}',
+  'clip.metaTime': 'Clipped at: {time}',
+  'clip.fieldTitle': 'Title',
+  'clip.fieldFolder': 'Folder',
+  'clip.folderNone': 'Unfiled',
+  'clip.fieldTags': 'Tags (comma/space separated)',
+  'clip.defaultTag': 'clipped',
+  'clip.duplicate': 'This clip has been imported before (content fingerprint match). Importing again creates a duplicate note.',
+  'clip.confirm': 'Import',
+  'clip.confirmForce': 'Force re-import',
+  'clip.cancel': 'Cancel',
+
   /* Header data menu */
   'header.dataTitle': 'Data: backup & import',
   'header.dataAria': 'Data menu',

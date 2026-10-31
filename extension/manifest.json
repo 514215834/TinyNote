@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "TinyNote 剪藏",
+  "version": "1.3.0",
+  "description": "把网页剪藏为 Markdown zip（正文/整页/选区），导入 TinyNote 完成入库。",
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "剪藏到 TinyNote"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "icons": {
+    "128": "icons/icon.png"
+  },
+  "permissions": ["activeTab", "scripting", "downloads", "contextMenus", "storage"],
+  "host_permissions": ["http://*/*", "https://*/*"]
+}
