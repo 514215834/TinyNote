@@ -14,6 +14,7 @@ import {
 import { defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { markdown } from '@codemirror/lang-markdown'
 import { oneDark } from '@codemirror/theme-one-dark'
+import { wikilinkCompletion, type WikiLinkCandidate } from './wikilinkComplete'
 
 /**
  * CodeMirror 6 扩展组合（F-301，ADR-004）：
@@ -21,7 +22,12 @@ import { oneDark } from '@codemirror/theme-one-dark'
  * 从而支持「行号可选」与按暗色模式切换主题两种动态配置。
  * 返回的数组每次调用重建，vue-codemirror 会对整组执行 reconfigure。
  */
-export function createMarkdownExtensions(options: { lineNumbers: boolean; dark: boolean }): Extension[] {
+export function createMarkdownExtensions(options: {
+  lineNumbers: boolean
+  dark: boolean
+  /** 双链候选注入器（F-701）：返回库中活跃笔记标题（按最近更新排序），输入 `[[` 时补全 */
+  getLinkCandidates?: () => readonly WikiLinkCandidate[]
+}): Extension[] {
   return [
     // 明确以容器 100% 高度铺满，滚动由 .cm-scroller 自身处理（分栏同步依赖它）
     EditorView.theme({
@@ -41,6 +47,8 @@ export function createMarkdownExtensions(options: { lineNumbers: boolean; dark: 
     // 浅色下的语法配色；暗色由 oneDark 的配色接管（其本身即一套 highlighter）
     syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
     ...options.dark ? [oneDark] : [],
+    // F-701：`[[` 唤出标题补全浮层（候选由编辑器注入）
+    ...options.getLinkCandidates ? [wikilinkCompletion(options.getLinkCandidates)] : [],
     // 玻璃化界面：编辑器与行号槽底色透明，透出容器的磨砂层（置于主题链最后以覆盖 oneDark 的实底）
     EditorView.theme({
       '&': { backgroundColor: 'transparent' },

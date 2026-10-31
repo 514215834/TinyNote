@@ -8,21 +8,27 @@ import { useBackup } from '@/features/backup/useBackup'
 import { BackupFormatError, BackupVersionError } from '@/features/backup/backup'
 import { useNotesStore } from '@/features/notes/stores/notes'
 import { useFoldersStore } from '@/features/folders/stores/folders'
+import { discardIndex, scheduleIndexBuild } from '@/features/search/searchIndex'
+import { discardLinks, scheduleLinksBuild } from '@/features/links/linkIndex'
+import { useImportStore } from '@/features/import/stores/import'
 
 const router = useRouter()
 const settings = useSettingsStore()
 const notesStore = useNotesStore()
 const foldersStore = useFoldersStore()
+const importStore = useImportStore()
 const { busy, exportBackupZip, exportNotesZip, importBackupFile } = useBackup()
 
 /**
- * 数据菜单（F-304/F-305）：全量备份导出 / 导入、全部笔记导出 .md。
- * 导入是覆盖语义，走确认弹窗；菜单点击外部任意位置收起（与侧边栏移动菜单同一交互模式）。
+ * 数据菜单（F-304/F-305/F-801）：全量备份导出 / 导入、外部文件导入（F-801/F-803/F-804）、
+ * 全部笔记导出 .md。备份导入是覆盖语义，走确认弹窗；外部导入为全量插入（不覆盖既有数据）。
+ * 菜单点击外部任意位置收起（与侧边栏移动菜单同一交互模式）。
  * 存储用量/持久化/缓存管理在设置面板（F-521/F-522）。
  */
 const menuOpen = ref(false)
 const menuButton = useTemplateRef<HTMLButtonElement>('menuButton')
 const fileInput = useTemplateRef<HTMLInputElement>('fileInput')
+const importInput = useTemplateRef<HTMLInputElement>('importInput')
 
 function toggleMenu(): void {
   menuOpen.value = !menuOpen.value
@@ -58,6 +64,20 @@ function pickImportFile(): void {
   fileInput.value?.click()
 }
 
+/** F-801/F-803/F-804：外部文件导入（.md 多选 / .zip / .enex），全量插入不覆盖既有数据 */
+function pickImportFiles(): void {
+  menuOpen.value = false
+  importInput.value?.click()
+}
+
+async function onImportFilesChange(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const files = [...(input.files ?? [])]
+  input.value = '' // 允许连续选择同一批文件重新导入
+  if (files.length === 0) return
+  await importStore.run(files)
+}
+
 async function onImportFileChange(event: Event): Promise<void> {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
@@ -67,9 +87,13 @@ async function onImportFileChange(event: Event): Promise<void> {
   if (!confirmed) return
   try {
     const result = await importBackupFile(file)
-    // 覆盖式恢复后，所有正在展示的列表与选中态一并刷新
+    // 覆盖式恢复后，所有正在展示的列表与选中态一并刷新；派生索引整库过期，择机重建
     await notesStore.reload()
     await foldersStore.init()
+    discardIndex()
+    scheduleIndexBuild(notesStore.notes.length)
+    discardLinks()
+    scheduleLinksBuild()
     window.alert(
       t('header.restoreDone', { notes: result.notes, folders: result.folders, attachments: result.attachments }),
     )
@@ -88,7 +112,10 @@ function importErrorMessage(error: unknown): string {
 </script>
 
 <template>
-  <header class="glass flex h-14 shrink-0 items-center justify-between rounded-2xl px-5">
+  <!-- z-30：.glass 的 backdrop-filter 使 header 自成 stacking context，内部浮层（数据菜单 z-20）的
+       层级出不了 header；显式抬高整层（> 横幅 z-10 / 主区 z-auto，低于命令面板与设置面板 z-40），
+       保证数据菜单下拉伸出 header 底边的部分不被 BackupBanner 与主内容区遮挡 -->
+  <header class="glass z-30 flex h-14 shrink-0 items-center justify-between rounded-2xl px-5">
     <span class="flex items-center gap-2 text-sm font-bold tracking-wide">
       <span class="flex h-6 w-6 items-center justify-center rounded-lg bg-gradient-to-br from-accent to-accent-strong text-[13px] text-white shadow-sm">T</span>
       TinyNote
@@ -158,6 +185,17 @@ function importErrorMessage(error: unknown): string {
             <span class="block font-medium text-gray-700 dark:text-neutral-200">{{ t('header.exportNotes') }}</span>
             <span class="block text-[11px] text-gray-400">{{ t('header.exportNotesDesc') }}</span>
           </button>
+          <!-- F-801/F-803/F-804：外部文件导入（全量插入） -->
+          <button
+            type="button"
+            class="w-full px-3 py-2 text-left text-xs transition-colors hover:bg-gray-900/5 dark:hover:bg-white/8"
+            role="menuitem"
+            :disabled="importStore.working"
+            @click="pickImportFiles"
+          >
+            <span class="block font-medium text-gray-700 dark:text-neutral-200">{{ t('header.importFiles') }}</span>
+            <span class="block text-[11px] text-gray-400">{{ t('header.importFilesDesc') }}</span>
+          </button>
         </div>
         <input
           ref="fileInput"
@@ -166,6 +204,15 @@ function importErrorMessage(error: unknown): string {
           class="hidden"
           :aria-label="t('header.fileAria')"
           @change="onImportFileChange"
+        />
+        <input
+          ref="importInput"
+          type="file"
+          accept=".md,.markdown,.zip,.enex"
+          multiple
+          class="hidden"
+          :aria-label="t('header.importFiles')"
+          @change="onImportFilesChange"
         />
       </div>
 

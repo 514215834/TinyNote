@@ -42,9 +42,26 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  // E-01 打包拆分（v1.1 搭车）：功能面已越过单 chunk 的合算点——
+  // 框架 / 编辑器 / Markdown 渲染 / MiniSearch / 虚拟列表分 chunk，产物粒度利于缓存与增量更新；
+  // MiniSearch 已在 searchIndex 内动态 import，此 manualChunks 仅给该 chunk 命名。
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['vue', 'vue-router', 'pinia', '@vueuse/core', 'dexie', 'fflate'],
+          editor: ['vue-codemirror', 'codemirror', '@codemirror/lang-markdown', '@codemirror/theme-one-dark'],
+          markdown: ['markdown-it', 'markdown-it-footnote', 'markdown-it-task-lists', 'highlight.js'],
+          minisearch: ['minisearch'],
+          virtual: ['@tanstack/vue-virtual'],
+        },
+      },
+    },
+  },
   test: {
     environment: 'happy-dom',
     setupFiles: ['./src/__tests__/setup.ts'],
+    exclude: ['**/node_modules/**', '**/dist/**', 'e2e/**'], // e2e 归 Playwright（E-02），vitest 不收集
   },
 })
 

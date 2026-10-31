@@ -92,6 +92,25 @@ registerDictionary('en', {
   'trash.deleteForeverConfirm': 'Permanently delete "{title}"? This cannot be undone.',
   'trash.emptyConfirm': 'Empty the trash? All notes in it will be permanently deleted.',
 
+  /* Wiki links (F-701/F-702) */
+  'links.panelTab': 'Links',
+  'links.panelAria': 'Links panel (backlinks & outlinks)',
+  'links.sidebarAria': 'Editor sidebar',
+  'links.backlinks': 'Backlinks',
+  'links.outlinks': 'Outgoing links',
+  'links.loading': 'Building link index…',
+  'links.emptyBacklinks': 'No notes link here yet',
+  'links.emptyOutlinks': 'No outgoing links in this note',
+  'links.broken': 'Broken',
+  'links.outlineEmpty': 'No outline in this note',
+  'links.outlinePreviewHint': 'Switch to preview mode to view the outline',
+  'links.sameTitle': '{n} notes share the title "{title}"',
+  'links.sameTitlePick': 'Pick a note to open',
+  'links.sameTitleAria': 'Pick among same-title notes',
+  'links.renameRefs': 'Title renamed; {n} "[[{old}]]" references pending update',
+  'links.updateRefs': 'Update all references',
+  'links.renameDismiss': 'Dismiss (keep old references)',
+
   /* Command palette */
   'palette.dialogAria': 'Global search',
   'palette.placeholder': 'Search titles, tags and content…',
@@ -103,11 +122,45 @@ registerDictionary('en', {
   /* Commands (F-603) */
   'commands.newNote': 'New note',
   'commands.openTrash': 'Open trash',
+  'commands.openGraph': 'Open knowledge graph',
   'commands.toggleTheme': 'Toggle dark mode',
   'commands.toggleLineNumbers': 'Toggle line numbers',
   'commands.openSettings': 'Open settings',
   'commands.exportBackup': 'Export full backup',
   'commands.switchLanguage': '中文 / English',
+
+  /* Knowledge graph (F-703) */
+  'graph.title': 'Knowledge graph',
+  'graph.back': 'Back to notes',
+  'graph.nodesCount': '{nodes} nodes · {edges} edges',
+  'graph.scopeSubset': 'Current scope',
+  'graph.scopeAll': 'Whole library',
+  'graph.scopeAria': 'Render scope',
+  'graph.truncated': 'Too many nodes; keeping the {limit} most linked',
+  'graph.limitWarn': 'The library has {n} notes, above the {limit}-node threshold; interactions may lag',
+  'graph.confirmAll':
+    'The library has {n} notes; every node will be rendered at once. Above {limit} nodes this can lag or temporarily freeze the page. Continue?',
+  'graph.empty': 'No notes to draw yet',
+  'graph.emptyFiltered': 'No notes in the current scope',
+  'graph.resetView': 'Reset view',
+
+  /* Import interop (F-801/F-803/F-804) */
+  'import.title': 'Import result',
+  'import.working': 'Importing…',
+  'import.close': 'Close',
+  'import.summaryNotes': '{n} notes',
+  'import.summaryFolders': '{n} folders created',
+  'import.summaryAttachments': '{n} attachments',
+  'import.summarySkipped': '{n} skipped',
+  'import.summaryFailed': '{n} failed',
+  'import.sourceLine': 'Source: {url}',
+  'import.reasonUnsupported': 'Unsupported file type (.md / .zip / .enex only)',
+  'import.reasonEmptyFile': 'Empty file, skipped',
+  'import.reasonEmptyRow': 'Empty row, skipped',
+  'import.reasonAttachmentSkipped': 'Attachment not in image whitelist or over the 10MB limit',
+  'import.reasonWriteFailed': 'Write failed: {msg}',
+  'import.reasonZipFailed': 'Failed to read zip: {msg}',
+  'import.reasonParseFailed': 'Failed to parse: {msg}',
 
   /* Header data menu */
   'header.dataTitle': 'Data: backup & import',
@@ -123,6 +176,8 @@ registerDictionary('en', {
   'header.exportNotes': 'Export all notes',
   'header.exportNotesDesc': '.md zip (no attachments, portable)',
   'header.fileAria': 'Choose a backup file',
+  'header.importFiles': 'Import files',
+  'header.importFilesDesc': 'Markdown / ENEX / Notion packs (insert-only, existing data untouched)',
   'header.exportFailed': 'Export failed: {msg}',
   'header.importConfirm':
     'Importing a backup overwrites ALL current notes, folders and attachments, and cannot be undone.\nConsider exporting a full backup first. Continue?',

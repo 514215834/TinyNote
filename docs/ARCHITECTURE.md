@@ -225,6 +225,7 @@ db.version(4).stores({
 | ADR-009 | 正文分离 | **notes 表只存元数据（NoteMeta），正文拆入 contents 表按需读取**（v0.5/F-523）。列表/启动内存与笔记总量脱钩，单篇超大笔记不再拖慢全局；代价是保存写两表（单事务）与备份导出 join。备份格式 schemaVersion 2 保持不变 |
 | ADR-010 | 同步路线落地 | **全量载荷 + 基线指纹三方合并**（v0.6/F-501～F-503）：全部数据存单个 secret Gist 文件（SyncFile schemaVersion 1，JSON + 附件 base64）；以上次同步成功的状态指纹（settings KV `syncBaseline`）做三方判定，双侧都改时 `updatedAt` LWW、落败方保留为冲突副本，修改优先于删除，快照不参与同步；可选 AES-GCM（PBKDF2 600k 轮）端到端加密。首次同步无基线退化为纯 LWW（UI 提示先备份）。不自建服务器的承诺不变，PAT 仅存本机 |
 | ADR-011 | 扩展点评估（v1.0/F-605） | **两个稳定扩展缝 + 数据层天然可替换**：① 命令注册表（`useCommandRegistry`，F-603 落地）——命令面板动作全部来自注册表，`register/unregister` 即插件挂载/卸载接口，重复 id 覆盖支持热更新；② 编辑器扩展组（`editor/setup.ts`）——CodeMirror 扩展集中装配，插件化只需在该层追加；③ 数据层经 Repository/Port 接口可替换（存储引擎、同步端点）。**运行时第三方插件加载器明确不做**（安装来源/沙箱/版本协商/API 稳定性承诺成本高，等社区需求立项）。i18n 字典（`lib/i18n`）按语言注册，同样是受控扩展面 |
+| ADR-012 | 关系图谱自研（v1.1/F-703） | **自研轻量力导向（SVG + rAF），不引入 D3 量级依赖**：图谱需求仅「节点/边/hover/缩放/拖拽 + ≤500 节点降级」，D3-force/significant 及 Sigma 等库的收益（复杂布局与交互全家桶）远超体积与心智成本；自研内核为纯函数（`links/forceLayout.ts`，黄金角螺旋确定性初始布局、成对斥力 + 弹簧 + 中心引力、乘法 alpha 衰减≈270 步收敛），可单测、无随机源。渲染层直写 DOM（rAF 逐帧 setAttribute，绕开 Vue 响应式 diff），数据复用 F-702 链接索引（内存派生），节点上限 500 截断 + 全库显式确认（§10.1 降级口径） |
 
 ## 6. 目录结构
 
@@ -249,7 +250,12 @@ tinynote/
 │   │   ├── trash/               #   （v0.2）trash.ts（30 天清理口径）+ TrashView
 │   │   ├── search/             #   search.ts（纯过滤函数）+ highlight.ts + stores/search.ts
 │   │   │   ├── engine.ts                  # 正文流式扫描（Dexie 游标，F-524）
-│   │   │   └── searchIndex.ts             # MiniSearch 倒排索引（≥5000 篇自动切换，F-604）
+│   │   │   └── searchIndex.ts             # MiniSearch 倒排索引（≥5000 篇自动切换，F-604；库本体动态 import，E-01）
+│   │   ├── links/                #   （v1.1 已落地）wikilinks.ts（双链解析）+ linkIndex.ts（链接索引）+ graphData.ts（图谱装配）
+│   │   │   ├── GraphView.vue               # 关系图谱 /graph（路由级分包，ADR-012）
+│   │   │   ├── LinksPanel.vue              # 出入链接面板（F-702）
+│   │   │   ├── forceLayout.ts              # 自研力导向内核（纯函数，F-703）
+│   │   │   └── stores/links.ts             # Pinia：索引代数门面（面板/图谱共用）
 │   │   ├── commands/           #   （v1.0 已落地）registry.ts 命令注册表（F-603/F-605 扩展点，ADR-011）
 │   │   ├── editor/             #   （v0.3 已落地）NoteCodeEditor.vue（CodeMirror 封装）+ setup.ts（扩展组）
 │   │   │   ├── attachments.ts             # 粘贴/拖入纯函数（准入/引用/插入/孤儿判定）

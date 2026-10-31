@@ -13,11 +13,18 @@ import { addTag, removeTag } from '@/features/tags/tags'
 import { countChars, countWords } from './stats'
 import { formatDateTime, formatRelativeTime } from '@/lib/utils/time'
 import { useNotesStore } from './stores/notes'
+import { displayTitle, sortNotesForList } from './notes'
 import { useSettingsStore, type EditorViewMode } from '@/features/settings/stores/settings'
 import { useAttachmentsStore } from '@/features/editor/stores/attachments'
 import { useHistoryStore } from '@/features/history/stores/history'
+import { useLinksStore } from '@/features/links/stores/links'
+import { backlinkRefsOf } from '@/features/links/linkIndex'
+import type { WikiLinkCandidate } from '@/features/editor/wikilinkComplete'
+import LinksPanel from '@/features/links/LinksPanel.vue'
 import HistoryPanel from '@/features/history/HistoryPanel.vue'
-import { makeImageMarkdown, pickImageFiles } from '@/features/editor/attachments'
+import { makeImageMarkdown, pickImageFiles, isImageFile } from '@/features/editor/attachments'
+import { attachmentRef } from '@/lib/markdown/attachmentRef'
+import { htmlToMarkdown, htmlHasText } from '@/features/import/htmlToMarkdown'
 import NoteCodeEditor from '@/features/editor/NoteCodeEditor.vue'
 import { useBackup } from '@/features/backup/useBackup'
 
@@ -27,6 +34,7 @@ const notesStore = useNotesStore()
 const settings = useSettingsStore()
 const attachmentsStore = useAttachmentsStore()
 const historyStore = useHistoryStore()
+const linksStore = useLinksStore()
 const backup = useBackup()
 
 const modes: { value: EditorViewMode; labelKey: string }[] = [
@@ -51,10 +59,15 @@ const editorView = shallowRef<EditorView | null>(null)
 // persist 调用时才读取 title/content，因此切换笔记前的待写内容也能被正确保存。
 // 保存成功后追加 F-402 自动快照判定（大变更才落快照）。
 const { schedule, flush, status } = useAutoSave(async () => {
-  if (title.value === props.note.title && content.value === savedContent) return
-  await notesStore.saveChanges(props.note.id, { title: title.value, content: content.value })
-  savedContent = content.value
-  await historyStore.maybeAutoSnapshot(props.note.id, content.value)
+  // 竞态修复（E2E 冒烟发现）：在入口快照草稿，await 恢复后标记的是「本次实际保存的快照」。
+  // 若在保存落库期间继续键入，恢复后 content !== savedContent 仍成立，下次 flush 会补存增量；
+  // 旧写法在 await 后读 content.value，把保存窗口内的新键入误标为已保存，导致正文静默丢失。
+  const titleDraft = title.value
+  const contentDraft = content.value
+  if (titleDraft === props.note.title && contentDraft === savedContent) return
+  await notesStore.saveChanges(props.note.id, { title: titleDraft, content: contentDraft })
+  savedContent = contentDraft
+  await historyStore.maybeAutoSnapshot(props.note.id, contentDraft)
 })
 
 watch([title, content], () => {
@@ -191,16 +204,74 @@ function onEditorReady(view: EditorView): void {
 }
 
 /**
- * F-303：粘贴 / 拖入图片 → 附件落库 → 正文在光标处插入内部引用。
- * 非图片文件不拦截，交还给 CodeMirror 的默认行为（文本/路径拖放）。
+ * F-303/F-802：粘贴分流（capture 阶段——CodeMirror 的 paste 处理在 contentDOM 上，
+ * 气泡阶段到达时纯文本已被写入，会双插）：
+ * ① 文件含图片且 html 无正文文本（截图 / 独立图片复制）→ v0.3 附件管线；
+ * ② text/html 富文本 → turndown 转 Markdown 插入（动态 import 惰性加载）；
+ *    html 内 data: 图片落附件库，file:/blob: 等浏览器不可达引用丢图（已知限制），
+ *    http(s) 保留外链；
+ * ③ Ctrl/Cmd+Shift+V → 不拦截，CodeMirror 默认纯文本粘贴。
  */
 function onPaste(event: ClipboardEvent): void {
-  const files = event.clipboardData?.files
-  if (!files?.length) return
-  const images = pickImageFiles(files)
-  if (images.length === 0) return
+  const transfer = event.clipboardData
+  if (transfer === null) return
+  // ClipboardEvent 规范不声明修饰键（lib.dom 同样缺失），浏览器实际携带：显式收窄读取
+  const modifiers = event as ClipboardEvent & { ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean }
+  if ((modifiers.ctrlKey === true || modifiers.metaKey === true) && modifiers.shiftKey === true) return
+  const images = pickImageFiles(transfer.files ?? [])
+  const html = transfer.getData('text/html')
+  const richText = html !== '' && htmlHasText(html)
+  if (!richText && images.length > 0) {
+    event.preventDefault()
+    event.stopPropagation()
+    void insertImages(images)
+    return
+  }
+  if (html === '') return
   event.preventDefault()
-  void insertImages(images)
+  event.stopPropagation()
+  void insertRichText(html, transfer)
+}
+
+async function insertRichText(html: string, transfer: DataTransfer): Promise<void> {
+  const view = editorView.value
+  if (view === null) return
+  let markdown: string
+  try {
+    markdown = await pasteHtmlToMarkdown(html)
+  } catch {
+    // 转换失败回退纯文本：事件已拦截，默认粘贴不会发生，这里补齐避免丢剪贴板
+    markdown = transfer.getData('text/plain')
+  }
+  const { from, to } = view.state.selection.main
+  view.dispatch({
+    changes: { from, to, insert: markdown },
+    selection: { anchor: from + markdown.length },
+  })
+}
+
+/** 富文本转换预处理：data: 内嵌图片转附件（v0.3 管线），其余不可达 src 建立丢弃映射 */
+async function pasteHtmlToMarkdown(html: string): Promise<string> {
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  const imageSrcMap = new Map<string, string>()
+  for (const img of [...doc.querySelectorAll('img')]) {
+    const src = img.getAttribute('src') ?? ''
+    if (src === '' || /^https?:/i.test(src)) continue
+    if (src.startsWith('data:')) {
+      const blob = await fetch(src)
+        .then((res) => res.blob())
+        .catch(() => null)
+      const type = blob?.type || 'image/png'
+      if (blob !== null && isImageFile({ type, size: blob.size })) {
+        const file = new File([blob], 'pasted-image', { type })
+        const id = await attachmentsStore.attach(props.note.id, file)
+        imageSrcMap.set(src, attachmentRef(id))
+        continue
+      }
+    }
+    imageSrcMap.set(src, '')
+  }
+  return htmlToMarkdown(doc.body.innerHTML, { imageSrcMap })
 }
 function onDrop(event: DragEvent): void {
   const files = event.dataTransfer?.files
@@ -264,6 +335,112 @@ function removeNoteTag(tag: string): void {
 // F-203：置顶
 function togglePin(): void {
   void notesStore.togglePin(props.note.id)
+}
+
+/** F-701：`[[` 补全候选——活跃笔记标题（去重），按最近更新倒序（与侧栏列表同源） */
+function getLinkCandidates(): readonly WikiLinkCandidate[] {
+  const byTitle = new Map<string, number>()
+  for (const note of notesStore.notes) {
+    const trimmed = note.title.trim()
+    if (trimmed === '' || byTitle.has(trimmed)) continue
+    byTitle.set(trimmed, note.updatedAt)
+  }
+  return [...byTitle]
+    .map(([candidateTitle, updatedAt]) => ({ title: candidateTitle, updatedAt }))
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+}
+
+/**
+ * F-701：预览内双链点击——命中唯一 → 跳转；同名多篇 → 候选列表消歧；
+ * 未命中 → 新建同名笔记消除断链。锚点 href="#"，默认行为必须拦截
+ * （hash 路由下会触发一次多余的路由跳转）。
+ */
+const sameTitlePick = ref<{ title: string; candidates: NoteMeta[] } | null>(null)
+
+function onPreviewClick(event: MouseEvent): void {
+  const anchor = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-wikilink]') : null
+  if (anchor === null) return
+  event.preventDefault()
+  const target = anchor.dataset.wikilink ?? ''
+  if (target !== '') void openWikiLink(target)
+}
+
+async function openWikiLink(target: string): Promise<void> {
+  const matches = sortNotesForList(notesStore.notes.filter((note) => note.title.trim() === target))
+  if (matches.length === 1) {
+    notesStore.select(matches[0]!.id)
+    return
+  }
+  if (matches.length === 0) {
+    await flush() // 当前草稿先落盘，再切到新建的同名笔记
+    await notesStore.createNoteWithTitle(target)
+    return
+  }
+  sameTitlePick.value = { title: target, candidates: matches }
+}
+
+function pickSameTitle(id: string): void {
+  sameTitlePick.value = null
+  notesStore.select(id)
+}
+useEventListener(window, 'keydown', (event) => {
+  if (sameTitlePick.value !== null && event.key === 'Escape') sameTitlePick.value = null
+})
+
+/**
+ * F-701 重命名迁移：标题草稿与已落库基线不一致、且旧标题仍被 `[[ ]]` 引用时，
+ * 展示一键「更新全部引用」（先落库重命名，再全库替换引用；迁移可能改写本篇正文——
+ * 自引用场景——完成后重读草稿与保存基线，避免旧内容在下次自动保存时回写覆盖）。
+ * 点 × 表示接受现状：旧引用留作断链（仍可点击走「新建同名」）；之后再次重命名会重新检测。
+ */
+const savedTitle = ref(props.note.title)
+const migrating = ref(false)
+const pendingRenameRefs = computed(() => {
+  void linksStore.version // 索引更新后重新求值
+  const oldTitle = savedTitle.value.trim()
+  const newTitle = title.value.trim()
+  if (oldTitle === '' || newTitle === '' || oldTitle === newTitle) return 0
+  return backlinkRefsOf(oldTitle).length
+})
+
+async function migrateRenameRefs(): Promise<void> {
+  if (migrating.value) return
+  const oldTitle = savedTitle.value.trim()
+  const newTitle = title.value.trim()
+  if (oldTitle === '' || newTitle === '' || oldTitle === newTitle) return
+  migrating.value = true
+  try {
+    await flush() // 重命名先落库（编辑器卸载兜底之外的确定性保存点）
+    const touched = await notesStore.renameReferences(oldTitle, newTitle)
+    savedTitle.value = newTitle
+    if (touched > 0) {
+      // 迁移可能改写了本篇正文：重读草稿并对齐保存基线（store 已清正文缓存）
+      content.value = await notesStore.loadContent(props.note.id)
+      savedContent = content.value
+    }
+  } finally {
+    migrating.value = false
+  }
+}
+
+function dismissRenameRefs(): void {
+  savedTitle.value = title.value
+}
+
+// F-302/F-702：编辑器右侧栏——预览态常显「大纲」页签，工具栏按钮可随时切换「链接」页签
+const linksOpen = ref(false)
+const sidebarTab = computed(() => (linksOpen.value ? 'links' : 'outline'))
+const sidebarVisible = computed(() => mode.value === 'preview' || linksOpen.value)
+function toggleLinksPanel(): void {
+  linksOpen.value = !linksOpen.value
+}
+
+function onLinkOpen(id: string): void {
+  notesStore.select(id)
+}
+
+function onLinkCreate(target: string): void {
+  void openWikiLink(target)
 }
 
 // F-207：字数/字符数统计（随渲染源一并防抖，行号开关 F-301）
@@ -356,6 +533,30 @@ const stats = computed(() => ({ words: countWords(statsSource.value), chars: cou
           <path d="M12 7v5l4 2" />
         </svg>
       </button>
+      <!-- F-702：链接面板（出入链接）开关 -->
+      <button
+        type="button"
+        class="shrink-0 rounded-lg p-2 text-gray-400 transition-colors hover:bg-white/60 hover:text-gray-700 dark:text-neutral-500 dark:hover:bg-white/8 dark:hover:text-neutral-200"
+        :class="{ 'bg-white/70 text-gray-900 dark:bg-white/10 dark:text-neutral-100': sidebarVisible && sidebarTab === 'links' }"
+        :title="t('links.panelAria')"
+        :aria-label="t('links.panelAria')"
+        @click="toggleLinksPanel"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+        </svg>
+      </button>
       <div
         class="flex shrink-0 items-center rounded-full border border-gray-900/10 bg-white/50 p-0.5 text-xs shadow-sm dark:border-white/10 dark:bg-white/5"
       >
@@ -406,9 +607,34 @@ const stats = computed(() => ({ words: countWords(statsSource.value), chars: cou
         @blur="commitTagInput"
       />
     </div>
+    <!-- F-701：重命名迁移——旧标题仍被 `[[ ]]` 引用时的一键迁移入口（× 为接受现状留断链） -->
+    <div
+      v-if="pendingRenameRefs > 0"
+      class="flex shrink-0 flex-wrap items-center gap-3 border-b border-amber-300/40 bg-amber-100/50 px-6 py-1.5 text-xs text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200"
+    >
+      <span class="min-w-0 flex-1 truncate">
+        {{ t('links.renameRefs', { n: pendingRenameRefs, old: savedTitle.trim() }) }}
+      </span>
+      <button
+        type="button"
+        class="shrink-0 rounded-full bg-amber-500/90 px-2.5 py-0.5 text-[11px] font-medium text-white transition-colors hover:bg-amber-500 disabled:opacity-60"
+        :disabled="migrating"
+        @click="void migrateRenameRefs()"
+      >
+        {{ t('links.updateRefs') }}
+      </button>
+      <button
+        type="button"
+        class="shrink-0 text-amber-700/70 transition-colors hover:text-amber-800 dark:text-amber-200/70 dark:hover:text-amber-100"
+        :aria-label="t('links.renameDismiss')"
+        @click="dismissRenameRefs"
+      >
+        ×
+      </button>
+    </div>
     <div
       class="flex min-h-0 flex-1 gap-3"
-      @paste="onPaste"
+      @paste.capture="onPaste"
       @dragover.prevent
       @drop="onDrop"
     >
@@ -421,6 +647,7 @@ const stats = computed(() => ({ words: countWords(statsSource.value), chars: cou
           v-model="content"
           :line-numbers="settings.editorLineNumbers"
           :dark="settings.isDark"
+          :get-link-candidates="getLinkCandidates"
           class="h-full overflow-hidden rounded-xl border border-gray-900/8 bg-white/40 dark:border-white/8 dark:bg-white/[0.03]"
           @ready="onEditorReady"
           @blur="flush()"
@@ -434,6 +661,7 @@ const stats = computed(() => ({ words: countWords(statsSource.value), chars: cou
           ref="previewEl"
           :class="mode === 'split' ? 'border-l border-gray-900/8 dark:border-white/8' : ''"
           class="h-full min-w-0 flex-1 overflow-y-auto p-6"
+          @click="onPreviewClick"
         >
           <!-- v-html 全项目唯一插口：仅渲染 markdown-it（html:false）自身输出，见 ADR-006 -->
           <!-- F-521：字体/字号/行宽由外观偏好变量驱动（main.css :root 定义，设置面板可改） -->
@@ -448,19 +676,59 @@ const stats = computed(() => ({ words: countWords(statsSource.value), chars: cou
             v-html="html"
           ></article>
         </div>
-        <!-- F-302：预览态大纲（TOC），点击平滑跳转到对应标题 -->
-        <nav
-          v-if="mode === 'preview' && headings.length > 0"
-          aria-label="大纲"
-          class="w-56 shrink-0 overflow-y-auto border-l border-gray-900/8 bg-white/25 py-4 dark:border-white/8 dark:bg-white/[0.03]"
+      </div>
+      <!-- F-302/F-702：编辑器右侧栏——「大纲 / 链接」页签；预览态常显（大纲），链接页签任意模式可开 -->
+      <aside
+        :aria-label="t('links.sidebarAria')"
+        class="flex w-60 shrink-0 flex-col overflow-hidden border-l border-gray-900/8 bg-white/25 dark:border-white/8 dark:bg-white/[0.03]"
+      >
+        <div
+          class="flex shrink-0 items-center gap-1 border-b border-gray-900/8 px-3 py-2 dark:border-white/8"
+          role="tablist"
         >
-          <p class="px-4 pb-2 text-[11px] font-medium text-gray-400">{{ t('editor.outline') }}</p>
-          <ul class="space-y-0.5">
+          <button
+            type="button"
+            role="tab"
+            :aria-selected="sidebarTab === 'outline'"
+            class="rounded-full px-2.5 py-0.5 text-[11px] transition-colors"
+            :class="
+              sidebarTab === 'outline'
+                ? 'bg-white/80 text-gray-900 shadow-sm dark:bg-white/10 dark:text-neutral-100'
+                : 'text-gray-400 hover:text-gray-700 dark:text-neutral-500 dark:hover:text-neutral-300'
+            "
+            @click="linksOpen = false"
+          >
+            {{ t('editor.outline') }}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            :aria-selected="sidebarTab === 'links'"
+            class="rounded-full px-2.5 py-0.5 text-[11px] transition-colors"
+            :class="
+              sidebarTab === 'links'
+                ? 'bg-white/80 text-gray-900 shadow-sm dark:bg-white/10 dark:text-neutral-100'
+                : 'text-gray-400 hover:text-gray-700 dark:text-neutral-500 dark:hover:text-neutral-300'
+            "
+            @click="linksOpen = true"
+          >
+            {{ t('links.panelTab') }}
+          </button>
+        </div>
+        <!-- F-302：预览态大纲（TOC），点击平滑跳转到对应标题；编辑模式下提示切换预览 -->
+        <template v-if="sidebarTab === 'outline'">
+          <p v-if="mode !== 'preview'" class="px-4 py-3 text-xs text-gray-400 dark:text-neutral-500">
+            {{ t('links.outlinePreviewHint') }}
+          </p>
+          <p v-else-if="headings.length === 0" class="px-4 py-3 text-xs text-gray-400 dark:text-neutral-500">
+            {{ t('links.outlineEmpty') }}
+          </p>
+          <ul v-else class="min-h-0 flex-1 space-y-0.5 overflow-y-auto py-3">
             <li v-for="heading in headings" :key="heading.id">
               <button
                 type="button"
                 class="block w-full truncate text-left text-xs text-gray-500 hover:text-gray-900 dark:text-neutral-400 dark:hover:text-neutral-100"
-                :style="{ paddingLeft: `${4 + (heading.level - 1) * 14}px` }"
+                :style="{ paddingLeft: `${16 + (heading.level - 1) * 14}px` }"
                 :title="heading.text"
                 @click="scrollToHeading(heading.id)"
               >
@@ -468,8 +736,10 @@ const stats = computed(() => ({ words: countWords(statsSource.value), chars: cou
               </button>
             </li>
           </ul>
-        </nav>
-      </div>
+        </template>
+        <!-- F-702：出入链接面板 -->
+        <LinksPanel v-else :note="props.note" @open="onLinkOpen" @create="onLinkCreate" />
+      </aside>
       <!-- F-402：历史版本面板（手动快照/回滚；与编辑模式无关，随开关显示） -->
       <HistoryPanel
         v-if="historyOpen"
@@ -499,5 +769,42 @@ const stats = computed(() => ({ words: countWords(statsSource.value), chars: cou
         {{ t('editor.createdUpdated', { created: formatDateTime(props.note.createdAt), updated: formatRelativeTime(props.note.updatedAt) }) }}
       </span>
     </footer>
+    <!-- F-701：同名多篇双链消歧（候选列表点击打开；Esc/遮罩关闭） -->
+    <Teleport to="body">
+      <div
+        v-if="sameTitlePick !== null"
+        class="fixed inset-0 z-40 overflow-y-auto bg-gray-950/25 backdrop-blur-sm dark:bg-black/40"
+        @click.self="sameTitlePick = null"
+      >
+        <div
+          class="glass-strong mx-auto mt-[24vh] w-[min(22rem,92vw)] overflow-hidden rounded-2xl p-4 shadow-xl"
+          role="dialog"
+          aria-modal="true"
+          :aria-label="t('links.sameTitleAria')"
+        >
+          <p class="text-sm font-medium">
+            {{ t('links.sameTitle', { n: sameTitlePick.candidates.length, title: sameTitlePick.title }) }}
+          </p>
+          <p class="mt-0.5 text-xs text-gray-400 dark:text-neutral-500">{{ t('links.sameTitlePick') }}</p>
+          <ul class="mt-3 max-h-64 space-y-1 overflow-y-auto">
+            <li v-for="candidate in sameTitlePick.candidates" :key="candidate.id">
+              <button
+                type="button"
+                class="w-full rounded-xl px-3 py-2 text-left transition-colors hover:bg-white/70 dark:hover:bg-white/8"
+                @click="pickSameTitle(candidate.id)"
+              >
+                <span class="block truncate text-xs font-medium text-gray-700 dark:text-neutral-200">
+                  {{ displayTitle(candidate) }}
+                </span>
+                <span class="mt-0.5 block truncate text-[11px] text-gray-400">{{ candidate.excerpt }}</span>
+                <span class="mt-0.5 block text-[10px] text-gray-400 dark:text-neutral-500">
+                  {{ formatRelativeTime(candidate.updatedAt) }}
+                </span>
+              </button>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </Teleport>
   </section>
 </template>
