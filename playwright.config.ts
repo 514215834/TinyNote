@@ -29,9 +29,12 @@ export default defineConfig({
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
-    command: 'npm run preview -- --port 4173 --strictPort',
+    // --host 钉死 IPv4：preview 默认 host=localhost，Linux 上 Node 按 hosts 顺序可能绑 ::1，
+    // 而就绪检查轮询 127.0.0.1 → 连接被拒盲等 120s 超时（CI 前两跑踩坑，本地 Windows 不可复现）
+    command: 'npm run preview -- --port 4173 --strictPort --host 127.0.0.1',
     url: APP_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    stdout: 'pipe', // preview banner 进 CI 日志：超时时可区分「服务未起」与「起而不可达」
   },
 })
