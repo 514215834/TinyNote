@@ -647,7 +647,7 @@ const listRows = computed<ListItemRow[]>(() => {
     <div class="flex shrink-0 gap-1 border-t border-gray-900/8 px-2 py-2 dark:border-white/8">
       <button
         type="button"
-        class="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-xl px-3 py-1.5 text-sm transition-colors"
+        class="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-1.5 py-1.5 text-sm transition-colors"
         :class="inTrash ? 'bg-white/80 shadow-sm dark:bg-white/10' : 'hover:bg-white/55 dark:hover:bg-white/5'"
         :aria-label="t('sidebar.openTrashAria')"
         @click="router.push({ name: 'trash' })"
@@ -672,7 +672,7 @@ const listRows = computed<ListItemRow[]>(() => {
       </button>
       <button
         type="button"
-        class="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-xl px-3 py-1.5 text-sm transition-colors"
+        class="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-1.5 py-1.5 text-sm transition-colors"
         :class="inGraph ? 'bg-white/80 shadow-sm dark:bg-white/10' : 'hover:bg-white/55 dark:hover:bg-white/5'"
         :aria-label="t('graph.title')"
         @click="router.push({ name: 'graph' })"
@@ -696,7 +696,7 @@ const listRows = computed<ListItemRow[]>(() => {
       </button>
       <button
         type="button"
-        class="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-xl px-3 py-1.5 text-sm transition-colors"
+        class="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-1.5 py-1.5 text-sm transition-colors"
         :class="inAttachments ? 'bg-white/80 shadow-sm dark:bg-white/10' : 'hover:bg-white/55 dark:hover:bg-white/5'"
         :aria-label="t('attachments.title')"
         @click="router.push({ name: 'attachments' })"
