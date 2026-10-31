@@ -83,6 +83,12 @@ function registerBuiltinCommands(): void {
       run: () => router.push({ name: 'graph' }),
     },
     {
+      id: 'nav.attachments',
+      title: () => t('commands.openAttachments'),
+      keywords: 'attachments storage files 附件 管理 存储',
+      run: () => router.push({ name: 'attachments' }),
+    },
+    {
       id: 'theme.toggle',
       title: () => t('commands.toggleTheme'),
       keywords: 'dark light theme 深浅色 主题',

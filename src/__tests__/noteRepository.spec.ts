@@ -125,6 +125,51 @@ describe('noteRepository（F-107，经 fake-indexeddb 走真实 Dexie 路径）'
     expect(await db.contents.get('n1')).toBeUndefined()
   })
 
+  // ———— F-1005 标签全库操作 ————
+  describe('标签全库操作（F-1005）', () => {
+    it('renameTagEverywhere：活跃与回收站笔记都替换；updatedAt 不刷新', async () => {
+      await seed(makeNote('n1', 100))
+      await seed(makeNote('n2', 200, true))
+      const n1 = makeNote('n1', 100)
+      n1.tags = ['work', 'life']
+      await seed(n1)
+      const n2 = makeNote('n2', 200, true)
+      n2.tags = ['WORK']
+      await seed(n2)
+
+      const touched = await noteRepository.renameTagEverywhere('Work', '深度工作')
+      expect(touched).toBe(2)
+      expect((await db.notes.get('n1'))?.tags).toEqual(['深度工作', 'life'])
+      expect((await db.notes.get('n2'))?.tags).toEqual(['深度工作'])
+      expect((await db.notes.get('n1'))?.updatedAt).toBe(100) // 列表不因此重排
+    })
+
+    it('mergeTagEverywhere：source 注入 into 并去重', async () => {
+      const n1 = makeNote('n1', 100)
+      n1.tags = ['a', 'b']
+      await seed(n1)
+      await noteRepository.mergeTagEverywhere('a', 'b')
+      expect((await db.notes.get('n1'))?.tags).toEqual(['b'])
+    })
+
+    it('removeTagEverywhere：清引用、笔记保留', async () => {
+      const n1 = makeNote('n1', 100)
+      n1.tags = ['x', 'y']
+      await seed(n1)
+      const touched = await noteRepository.removeTagEverywhere('X')
+      expect(touched).toBe(1)
+      const meta = await db.notes.get('n1')
+      expect(meta?.tags).toEqual(['y'])
+      expect(await noteRepository.getContent('n1')).toBe('内容-n1')
+    })
+
+    it('无命中的标签操作不写任何笔记', async () => {
+      await seed(makeNote('n1', 100))
+      expect(await noteRepository.renameTagEverywhere('ghost', '新')).toBe(0)
+      expect(await noteRepository.removeTagEverywhere('ghost')).toBe(0)
+    })
+  })
+
   describe('replaceTitleReferences（F-701 重命名迁移）', () => {
     it('全库替换引用并保留别名；返回受影响笔记 id；excerpt 重算', async () => {
       await seed(makeNote('n1', 100))

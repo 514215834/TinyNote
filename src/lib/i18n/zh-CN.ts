@@ -176,6 +176,54 @@ registerDictionary('zh-CN', {
   'clip.confirmForce': '强制重新导入',
   'clip.cancel': '取消',
 
+  /* v1.4 通用（F-1003/F-1004/F-1005） */
+  'common.attachment': '附件',
+  'common.attachmentMissing': '[附件缺失]',
+  'common.download': '下载',
+  'common.delete': '删除',
+  'common.cancel': '取消',
+  'common.confirm': '确认',
+  'common.kindImage': '图片',
+  'common.kindText': '文本',
+  'common.kindAudio': '音频',
+  'common.kindUnknown': '文件',
+
+  /* F-1001/F-1002 预览富渲染 */
+  'preview.mermaidError': '图表语法错误：{msg}',
+
+  /* F-1004 附件管理面板 */
+  'attachments.title': '附件',
+  'attachments.back': '返回笔记',
+  'attachments.count': '共 {n} 个',
+  'attachments.loading': '正在扫描附件…',
+  'attachments.empty': '库中还没有附件。粘贴 / 拖入图片或文件后会出现在这里。',
+  'attachments.noteMissing': '笔记已删除',
+  'attachments.cleanupButton': '清理孤儿（{n}）',
+  'attachments.cleanupConfirm': '将删除 {n} 个孤儿附件，释放约 {size} 存储空间。此操作不可撤销，继续？',
+  'attachments.deleteConfirm': '删除附件「{name}」？如正文仍引用它，预览将显示缺失占位。',
+  'attachments.state.content': '正文引用',
+  'attachments.state.snapshot': '仅快照引用',
+  'attachments.state.orphan': '孤儿',
+  'attachments.kind.pdf': 'PDF',
+  'attachments.kind.audio': '音频',
+  'attachments.kind.text': '文本',
+  'attachments.kind.image': '图片',
+  'attachments.kind.other': '其他',
+
+  /* F-1005 标签管理 */
+  'tags.manageAria': '管理标签 {tag}',
+  'tags.manageTitle': '管理标签：{tag}',
+  'tags.rename': '重命名',
+  'tags.renameTitle': '重命名「{tag}」为：',
+  'tags.renameUnchanged': '新名称与原标签相同',
+  'tags.merge': '合并到…',
+  'tags.mergeTitle': '把「{tag}」合并到：',
+  'tags.remove': '删除',
+  'tags.removeConfirm': '从所有笔记移除标签「{tag}」？（笔记本体保留）',
+
+  /* 命令面板（F-1004） */
+  'commands.openAttachments': '打开附件管理',
+
   /* 顶栏数据菜单 */
   'header.dataTitle': '数据：备份导出 / 导入',
   'header.dataAria': '数据菜单',
@@ -239,7 +287,10 @@ registerDictionary('zh-CN', {
   'settings.accentCustomAria': '自定义主题色',
   'settings.ambient': '环境光晕',
   'settings.ambientDesc': '三色光斑透过玻璃形成的环境光，颜色跟随主题色；觉得干扰阅读时可关闭',
-  'settings.font': '正文字体',
+  'settings.math': 'LaTeX 公式',
+  'settings.mathDesc': '预览渲染 $…$ 行内与 $$…$$ 块级公式（KaTeX，代码块内不触发）',
+  'settings.mermaid': 'Mermaid 图表',
+  'settings.mermaidDesc': '预览把 mermaid 围栏代码块渲染为图表；语法错误时保留原文并提示',  'settings.font': '正文字体',
   'settings.fontSystem': '系统',
   'settings.fontSerif': '衬线',
   'settings.fontMono': '等宽',

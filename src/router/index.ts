@@ -14,5 +14,11 @@ export default createRouter({
       name: 'graph',
       component: () => import('@/features/links/GraphView.vue'),
     },
+    // F-1004 附件管理面板：视图按需加载（E-01 同纪律）
+    {
+      path: '/attachments',
+      name: 'attachments',
+      component: () => import('@/features/attachmentsPanel/AttachmentsView.vue'),
+    },
   ],
 })

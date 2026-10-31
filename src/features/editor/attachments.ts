@@ -11,20 +11,42 @@ import type { Attachment } from '@/types'
 /** 单附件体积上限：黏贴超大截图时直接拒绝（架构文档 §10 单文件过大风险） */
 export const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024
 
-/** 图片文件判定：仅接受 image/* MIME 且体积未超限 */
+/**
+ * 附件准入白名单（F-1003，由 v0.3 仅图片扩展）：图片 + PDF + 纯文本 + 音频。
+ * 大小上限沿用 10MB/个；孤儿清理、备份（fflate 二进制安全）、同步（base64 内联）口径自动兼容。
+ */
+export function isAttachableFile(file: { type: string; size: number }): boolean {
+  if (file.size <= 0 || file.size > MAX_ATTACHMENT_SIZE) return false
+  const type = file.type.toLowerCase()
+  return (
+    type.startsWith('image/') ||
+    type.startsWith('audio/') ||
+    type.startsWith('text/') ||
+    type === 'application/pdf'
+  )
+}
+
+/** 图片文件判定（旧口径，data: 内嵌图等确定是图片的场景仍用）：仅接受 image/* MIME 且体积未超限 */
 export function isImageFile(file: { type: string; size: number }): boolean {
   return file.type.startsWith('image/') && file.size > 0 && file.size <= MAX_ATTACHMENT_SIZE
 }
 
-/** 把剪贴板 / 拖拽文件列表中最前面的图片文件取出来（事件里的 File 对象原样透传） */
-export function pickImageFiles(files: Iterable<File>): File[] {
-  return Array.from(files).filter((file) => isImageFile(file))
+/** 把剪贴板 / 拖拽文件列表中可入库的附件文件取出来（事件里的 File 对象原样透传） */
+export function pickAttachableFiles(files: Iterable<File>): File[] {
+  return Array.from(files).filter((file) => isAttachableFile(file))
 }
 
-/** 生成要插入正文的图片 Markdown（name 只用于 alt，需剥除可能破坏语法的方括号） */
-export function makeImageMarkdown(id: string, name: string): string {
-  const alt = name.trim().replace(/[[\]]/g, ' ').trim() || t('common.image')
-  return `![${alt}](${attachmentRef(id)})`
+/**
+ * 生成要插入正文的附件 Markdown（F-1003）：
+ * 图片走 `![alt](引用)`（预览为图片）；非图片（PDF/文本/音频）走 `[名称](引用)`
+ * （预览为附件卡片）。名称只用于 alt/文案，需剥除可能破坏语法的方括号。
+ */
+export function makeAttachmentMarkdown(id: string, name: string, mime: string): string {
+  const label = name.trim().replace(/[[\]]/g, ' ').trim() || t('common.attachment')
+  if (mime.toLowerCase().startsWith('image/')) {
+    return `![${label}](${attachmentRef(id)})`
+  }
+  return `[${label}](${attachmentRef(id)})`
 }
 
 /** 从 File 产出完整 Attachment 实体（id 默认由 createId 生成，F-303） */
@@ -32,7 +54,7 @@ export function buildAttachment(file: File, noteId: string, id: string = createI
   return {
     id,
     noteId,
-    name: file.name || 'image',
+    name: file.name || 'attachment',
     mime: file.type,
     size: file.size,
     blob: file,
@@ -55,9 +77,9 @@ export function insertIntoText(
 
 /** 把事件中的文件流转成可插入的 Markdown 序列（逐文件生成 Attachment 实体） */
 export function filesToInsertions(files: File[], noteId: string): { attachment: Attachment; markdown: string }[] {
-  return pickImageFiles(files).map((file) => {
+  return pickAttachableFiles(files).map((file) => {
     const attachment = buildAttachment(file, noteId)
-    return { attachment, markdown: makeImageMarkdown(attachment.id, attachment.name) }
+    return { attachment, markdown: makeAttachmentMarkdown(attachment.id, attachment.name, attachment.mime) }
   })
 }
 

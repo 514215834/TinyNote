@@ -34,6 +34,32 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: 'index.html',
+        // F-1002：Mermaid 家族（图引擎 elk/cytoscape/dagre + 各图型懒加载 chunk）不进预缓存——
+        // 合计约 900KB gzip，且仅预览真正遇到图表时才需要；离线时动态 import 失败，
+        // 增强层 catch 后围栏代码块原样保留（与语法错误同一回落路径）。
+        // KaTeX 的 js/css 保持预缓存（离线公式可用；KaTeX 字体不预缓存，离线以回退字体渲染）。
+        globIgnores: [
+          '**/mermaid*',
+          '**/diagram-*',
+          '**/*Diagram-*',
+          '**/chunk-*',
+          '**/init-*',
+          '**/arc-*',
+          '**/graph-*',
+          '**/channel-*',
+          '**/linear-*',
+          '**/ordinal-*',
+          '**/defaultLocale-*',
+          '**/dagre-*',
+          '**/cytoscape*',
+          '**/cose-bilkent*',
+          '**/elk-*',
+          '**/cynefin*',
+          '**/sizeCapture-*',
+          '**/swimlanes*',
+          '**/timeline-definition*',
+          '**/kanban-definition*',
+        ],
       },
     }),
   ],

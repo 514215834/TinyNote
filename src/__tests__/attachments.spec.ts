@@ -5,10 +5,11 @@ import {
   buildAttachment,
   filesToInsertions,
   insertIntoText,
+  isAttachableFile,
   isImageFile,
-  makeImageMarkdown,
+  makeAttachmentMarkdown,
   orphanAttachmentIds,
-  pickImageFiles,
+  pickAttachableFiles,
 } from '@/features/editor/attachments'
 import { extractAttachmentIds } from '@/lib/markdown/attachmentRef'
 
@@ -20,30 +21,48 @@ function makeFile(name: string, type: string, size: number): File {
   return file
 }
 
-describe('isImageFile / pickImageFiles（F-303 准入）', () => {
-  it('仅接受 image/* 且未超限的非空文件', () => {
+describe('isImageFile / isAttachableFile（F-303/F-1003 准入）', () => {
+  it('isImageFile 仅接受 image/* 且未超限的非空文件（data: 内嵌图等确定图片场景用）', () => {
     expect(isImageFile(makeFile('a.png', 'image/png', 1024))).toBe(true)
     expect(isImageFile(makeFile('doc.pdf', 'application/pdf', 1024))).toBe(false)
     expect(isImageFile(makeFile('big.png', 'image/png', MAX_ATTACHMENT_SIZE + 1))).toBe(false)
     expect(isImageFile({ type: 'image/png', size: 0 })).toBe(false)
   })
 
-  it('pickImageFiles 过滤非图片并保持顺序', () => {
+  it('isAttachableFile 白名单：图片 + PDF + 纯文本 + 音频（F-1003），超限/空文件拒绝', () => {
+    expect(isAttachableFile(makeFile('a.png', 'image/png', 1024))).toBe(true)
+    expect(isAttachableFile(makeFile('doc.pdf', 'application/pdf', 1024))).toBe(true)
+    expect(isAttachableFile(makeFile('note.txt', 'text/plain', 1024))).toBe(true)
+    expect(isAttachableFile(makeFile('song.mp3', 'audio/mpeg', 1024))).toBe(true)
+    expect(isAttachableFile(makeFile('app.exe', 'application/octet-stream', 1024))).toBe(false)
+    expect(isAttachableFile(makeFile('vid.mp4', 'video/mp4', 1024))).toBe(false)
+    expect(isAttachableFile(makeFile('big.pdf', 'application/pdf', MAX_ATTACHMENT_SIZE + 1))).toBe(false)
+    expect(isAttachableFile({ type: 'application/pdf', size: 0 })).toBe(false)
+  })
+
+  it('pickAttachableFiles 过滤白名单外并保持顺序', () => {
     const files = [
-      makeFile('doc.pdf', 'application/pdf', 10),
+      makeFile('app.exe', 'application/octet-stream', 10),
       makeFile('a.png', 'image/png', 10),
-      makeFile('b.jpg', 'image/jpeg', 10),
+      makeFile('doc.pdf', 'application/pdf', 10),
+      makeFile('note.txt', 'text/plain', 10),
     ]
-    const picked = pickImageFiles(files)
-    expect(picked.map((file) => file.name)).toEqual(['a.png', 'b.jpg'])
+    const picked = pickAttachableFiles(files)
+    expect(picked.map((file) => file.name)).toEqual(['a.png', 'doc.pdf', 'note.txt'])
   })
 })
 
-describe('makeImageMarkdown（F-303 引用协议）', () => {
-  it('alt 剥除破坏语法的方括号，空名回退「图片」', () => {
-    expect(makeImageMarkdown('id1', '我的 截图')).toBe('![我的 截图](tinynote-attachment://id1)')
-    expect(makeImageMarkdown('id2', 'a[b]c')).toBe('![a b c](tinynote-attachment://id2)')
-    expect(makeImageMarkdown('id3', '   ')).toBe('![图片](tinynote-attachment://id3)')
+describe('makeAttachmentMarkdown（F-303/F-1003 引用协议）', () => {
+  it('图片走 ![alt](引用)，alt 剥除破坏语法的方括号，空名回退「附件」', () => {
+    expect(makeAttachmentMarkdown('id1', '我的 截图', 'image/png')).toBe('![我的 截图](tinynote-attachment://id1)')
+    expect(makeAttachmentMarkdown('id2', 'a[b]c', 'image/jpeg')).toBe('![a b c](tinynote-attachment://id2)')
+    expect(makeAttachmentMarkdown('id3', '   ', 'image/webp')).toBe('![附件](tinynote-attachment://id3)')
+  })
+
+  it('非图片（PDF/文本/音频）走 [名称](引用)，预览渲染为附件卡片', () => {
+    expect(makeAttachmentMarkdown('id4', '报告.pdf', 'application/pdf')).toBe('[报告.pdf](tinynote-attachment://id4)')
+    expect(makeAttachmentMarkdown('id5', 'notes.txt', 'text/plain')).toBe('[notes.txt](tinynote-attachment://id5)')
+    expect(makeAttachmentMarkdown('id6', 'song.mp3', 'audio/mpeg')).toBe('[song.mp3](tinynote-attachment://id6)')
   })
 })
 
@@ -55,7 +74,7 @@ describe('buildAttachment / filesToInsertions（F-303）', () => {
     expect(attachment.blob).toBe(file)
   })
 
-  it('filesToInsertions 逐个产出「附件 + 待插入 Markdown」', () => {
+  it('filesToInsertions 逐个产出「附件 + 待插入 Markdown」（F-1003 起含非图片）', () => {
     const result = filesToInsertions(
       [
         makeFile('doc.pdf', 'application/pdf', 10),
@@ -63,9 +82,10 @@ describe('buildAttachment / filesToInsertions（F-303）', () => {
       ],
       'note-1',
     )
-    expect(result).toHaveLength(1)
-    expect(result[0].attachment.noteId).toBe('note-1')
-    expect(result[0].markdown).toBe('![a.png](tinynote-attachment://' + result[0].attachment.id + ')')
+    expect(result).toHaveLength(2)
+    expect(result[0]!.attachment.noteId).toBe('note-1')
+    expect(result[0]!.markdown).toBe('[doc.pdf](tinynote-attachment://' + result[0]!.attachment.id + ')')
+    expect(result[1]!.markdown).toBe('![a.png](tinynote-attachment://' + result[1]!.attachment.id + ')')
   })
 })
 

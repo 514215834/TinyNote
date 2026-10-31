@@ -183,7 +183,7 @@ export function noteMarkdownFileName(note: Pick<Note, 'title' | 'content'>): str
   return `${fileNameSlug(note)}.md`
 }
 
-/** MIME → 扩展名映射（仅覆盖常见图片格式，未知类型回退 bin） */
+/** MIME → 扩展名映射（F-1003 白名单内常见格式，未知类型回退 bin） */
 export function extensionFor(mime: string): string {
   const table: Record<string, string> = {
     'image/png': 'png',
@@ -193,6 +193,18 @@ export function extensionFor(mime: string): string {
     'image/svg+xml': 'svg',
     'image/avif': 'avif',
     'image/bmp': 'bmp',
+    'application/pdf': 'pdf',
+    'text/plain': 'txt',
+    'text/markdown': 'md',
+    'text/csv': 'csv',
+    'audio/mpeg': 'mp3',
+    'audio/mp4': 'm4a',
+    'audio/wav': 'wav',
+    'audio/x-wav': 'wav',
+    'audio/ogg': 'ogg',
+    'audio/webm': 'webm',
+    'audio/flac': 'flac',
+    'audio/x-flac': 'flac',
   }
   return table[mime] ?? 'bin'
 }

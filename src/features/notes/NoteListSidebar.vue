@@ -11,6 +11,8 @@ import { useSearchStore } from '@/features/search/stores/search'
 import { filterByFolder, filterByTag, filterNotes } from '@/features/search/search'
 import { highlightSegments } from '@/features/search/highlight'
 import { collectTags } from '@/features/tags/tags'
+import TagManagePopover from '@/features/tags/TagManagePopover.vue'
+import { noteRepository } from '@/lib/db/repositories/noteRepository'
 import { displayTitle, sortNotesForList } from './notes'
 import { ESTIMATED_ROW_HEIGHT, shouldVirtualize } from './virtualList'
 import { formatRelativeTime } from '@/lib/utils/time'
@@ -61,6 +63,7 @@ const listEmptyText = computed(() =>
 
 const inTrash = computed(() => router.currentRoute.value.name === 'trash')
 const inGraph = computed(() => router.currentRoute.value.name === 'graph')
+const inAttachments = computed(() => router.currentRoute.value.name === 'attachments')
 
 function openNotesView(): void {
   if (inTrash.value || inGraph.value) void router.push({ name: 'notes' })
@@ -89,6 +92,39 @@ function toggleTag(tag: string): void {
   openNotesView()
 }
 
+// ———— F-1005 标签管理：浮层状态 + 全库操作编排（落库后整库刷新，与备份恢复同口径） ————
+const managingTag = ref<string | null>(null)
+
+function toggleManage(tag: string): void {
+  managingTag.value = managingTag.value === tag ? null : tag
+}
+
+function otherTags(tag: string): string[] {
+  return tags.value.map((item) => item.tag).filter((candidate) => candidate.toLowerCase() !== tag.toLowerCase())
+}
+
+async function onRenameTag(from: string, to: string): Promise<void> {
+  managingTag.value = null
+  await noteRepository.renameTagEverywhere(from, to)
+  await notesStore.noteExternalReload()
+}
+
+async function onMergeTag(from: string, into: string): Promise<void> {
+  managingTag.value = null
+  await noteRepository.mergeTagEverywhere(from, into)
+  await notesStore.noteExternalReload()
+}
+
+async function onRemoveTag(tag: string): Promise<void> {
+  managingTag.value = null
+  await noteRepository.removeTagEverywhere(tag)
+  // 正按该标签过滤时清除过滤，避免空视图悬留
+  if (notesStore.activeTag !== null && notesStore.activeTag.toLowerCase() === tag.toLowerCase()) {
+    notesStore.toggleTagFilter(notesStore.activeTag)
+  }
+  await notesStore.noteExternalReload()
+}
+
 function removeNote(note: NoteMeta): void {
   if (window.confirm(t('common.confirmDeleteNote', { title: displayTitle(note) }))) {
     void notesStore.softDelete(note.id)
@@ -115,6 +151,26 @@ function onDrop(folderId: string | null): void {
   if (dragNoteId.value === null) return
   void notesStore.moveToFolder(dragNoteId.value, folderId)
   dragNoteId.value = null
+}
+
+// ———— F-1006 文件夹拖拽排序：文件夹行既是笔记的投放目标，也是自身的拖拽源 ————
+const dragFolderId = ref<string | null>(null)
+
+function onFolderDragStart(folderId: string, event: DragEvent): void {
+  dragFolderId.value = folderId
+  event.dataTransfer?.setData('text/plain', `folder:${folderId}`)
+  if (event.dataTransfer !== null) event.dataTransfer.effectAllowed = 'move'
+}
+
+/** 行内 drop 分流：拖的是文件夹 → 重排；拖的是笔记 → 移动到该文件夹 */
+function onRowDrop(folderId: string, event: DragEvent): void {
+  if (dragFolderId.value !== null) {
+    event.preventDefault()
+    void foldersStore.reorder(dragFolderId.value, folderId)
+    dragFolderId.value = null
+    return
+  }
+  onDrop(folderId)
 }
 
 /** F-201 文件夹管理：新建 / 重命名（内联输入）/ 删除 */
@@ -247,10 +303,16 @@ const listRows = computed<ListItemRow[]>(() => {
       <div
         v-for="folder in foldersStore.folders"
         :key="folder.id"
-        :class="notesStore.activeFolderId === folder.id ? 'bg-white/80 shadow-sm dark:bg-white/10' : 'hover:bg-white/50 dark:hover:bg-white/5'"
+        :class="[
+          notesStore.activeFolderId === folder.id ? 'bg-white/80 shadow-sm dark:bg-white/10' : 'hover:bg-white/50 dark:hover:bg-white/5',
+          dragFolderId === folder.id ? 'opacity-50' : '',
+        ]"
         class="group/f relative cursor-pointer rounded-xl px-3 py-1.5 text-sm transition-colors"
+        draggable="true"
+        @dragstart="onFolderDragStart(folder.id, $event)"
+        @dragend="dragFolderId = null"
         @dragover.prevent
-        @drop="onDrop(folder.id)"
+        @drop="onRowDrop(folder.id, $event)"
         @click="applyFolder(folder.id)"
       >
         <input
@@ -356,21 +418,39 @@ const listRows = computed<ListItemRow[]>(() => {
     <div v-if="tags.length > 0" class="border-t border-gray-900/8 px-3 py-2 dark:border-white/8">
       <p class="mb-1.5 text-[11px] font-medium text-gray-400">{{ t('sidebar.tags') }}</p>
       <div class="flex flex-wrap gap-1.5">
-        <button
-          v-for="item in tags"
-          :key="item.tag"
-          type="button"
-          :class="
-            notesStore.activeTag === item.tag
-              ? 'bg-gradient-to-r from-accent to-accent-strong text-white shadow-sm shadow-accent/30'
-              : 'bg-white/60 text-gray-600 hover:bg-white/90 dark:bg-white/8 dark:text-neutral-300 dark:hover:bg-white/15'
-          "
-          class="rounded-full px-2.5 py-0.5 text-xs transition-colors"
-          @click="toggleTag(item.tag)"
-        >
-          {{ item.tag }}
-          <span class="opacity-60">{{ item.count }}</span>
-        </button>
+        <span v-for="item in tags" :key="item.tag" class="group relative inline-flex">
+          <button
+            type="button"
+            :class="
+              notesStore.activeTag === item.tag
+                ? 'bg-gradient-to-r from-accent to-accent-strong text-white shadow-sm shadow-accent/30'
+                : 'bg-white/60 text-gray-600 hover:bg-white/90 dark:bg-white/8 dark:text-neutral-300 dark:hover:bg-white/15'
+            "
+            class="rounded-full px-2.5 py-0.5 text-xs transition-colors"
+            @click="toggleTag(item.tag)"
+          >
+            {{ item.tag }}
+            <span class="opacity-60">{{ item.count }}</span>
+          </button>
+          <!-- F-1005：标签管理入口（hover 浮现，不挤占云区布局） -->
+          <button
+            type="button"
+            class="absolute -right-1.5 -top-1.5 hidden h-4 w-4 items-center justify-center rounded-full bg-gray-800/80 text-[9px] leading-none text-white shadow-sm group-hover:flex dark:bg-white/25"
+            :aria-label="t('tags.manageAria', { tag: item.tag })"
+            @click.stop="toggleManage(item.tag)"
+          >
+            ⋯
+          </button>
+          <TagManagePopover
+            v-if="managingTag === item.tag"
+            :tag="item.tag"
+            :others="otherTags(item.tag)"
+            @rename="onRenameTag"
+            @merge="onMergeTag"
+            @remove="onRemoveTag"
+            @close="managingTag = null"
+          />
+        </span>
       </div>
     </div>
 
@@ -563,7 +643,7 @@ const listRows = computed<ListItemRow[]>(() => {
       </div>
     </nav>
 
-    <!-- 底部入口（F-204 回收站 / F-703 关系图谱） -->
+    <!-- 底部入口（F-204 回收站 / F-703 关系图谱 / F-1004 附件管理） -->
     <div class="flex shrink-0 gap-1 border-t border-gray-900/8 px-2 py-2 dark:border-white/8">
       <button
         type="button"
@@ -613,6 +693,29 @@ const listRows = computed<ListItemRow[]>(() => {
           <path d="M7.5 7.5 10 15.5M16.5 7.5 14 15.5M8 6h8" />
         </svg>
         {{ t('graph.title') }}
+      </button>
+      <button
+        type="button"
+        class="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-xl px-3 py-1.5 text-sm transition-colors"
+        :class="inAttachments ? 'bg-white/80 shadow-sm dark:bg-white/10' : 'hover:bg-white/55 dark:hover:bg-white/5'"
+        :aria-label="t('attachments.title')"
+        @click="router.push({ name: 'attachments' })"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="shrink-0 text-gray-400"
+        >
+          <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+        </svg>
+        {{ t('attachments.title') }}
       </button>
     </div>
   </aside>

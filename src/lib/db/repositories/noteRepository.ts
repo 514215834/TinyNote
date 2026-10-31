@@ -2,6 +2,13 @@ import { db } from '../db'
 import type { Note, NoteMeta } from '@/types'
 import { makeExcerpt } from '@/features/notes/notes'
 import { replaceTitleRefs } from '@/features/links/wikilinks'
+import { mergeTagIn, removeTag, renameTagIn } from '@/features/tags/tags'
+
+/** 标签数组是否有实质变化（removeTag 等恒返新数组，需按内容判定避免空写） */
+function tagsChanged(before: string[], after: string[]): boolean {
+  if (before.length !== after.length) return true
+  return before.some((tag, index) => tag !== after[index])
+}
 
 /** 笔记数据访问：组件与 store 不直接触碰 IndexedDB，一律经此层（架构文档 3.2）。
  *  F-523 起列表只读元数据（NoteMeta），正文按需走 getContent / saveWithContent。 */
@@ -108,6 +115,37 @@ export const noteRepository = {
    * 命中的笔记同步重算 excerpt（标题回退口径依赖它）。回收站笔记一并处理：
    * 恢复后引用语义复原。返回值携带受影响笔记 id，供上层增量维护搜索/链接索引。
    */
+  /**
+   * F-1005 标签全库操作（重命名/合并/删除）：tags 由映射函数改写，
+   * 无变化的笔记不写库。updatedAt 不刷新（列表不因此重排；同步指纹本就
+   * 不含 updatedAt，标签变化仍可被三方合并检出）。
+   */
+  async updateTagsEverywhere(transform: (tags: string[]) => string[]): Promise<number> {
+    let touched = 0
+    await db.transaction('rw', db.notes, async () => {
+      const updates: NoteMeta[] = []
+      await db.notes.each((meta) => {
+        const next = transform(meta.tags)
+        if (tagsChanged(meta.tags, next)) updates.push({ ...meta, tags: next })
+      })
+      await db.notes.bulkPut(updates)
+      touched = updates.length
+    })
+    return touched
+  },
+
+  async renameTagEverywhere(from: string, to: string): Promise<number> {
+    return this.updateTagsEverywhere((tags) => renameTagIn(tags, from, to))
+  },
+
+  async mergeTagEverywhere(from: string, into: string): Promise<number> {
+    return this.updateTagsEverywhere((tags) => mergeTagIn(tags, from, into))
+  },
+
+  async removeTagEverywhere(tag: string): Promise<number> {
+    return this.updateTagsEverywhere((tags) => removeTag(tags, tag))
+  },
+
   async replaceTitleReferences(
     oldTitle: string,
     newTitle: string,

@@ -118,3 +118,24 @@ describe('replaceTitleRefs（F-701 重命名迁移）', () => {
     expect(content).toBe('[[$&新]]')
   })
 })
+
+// ———— v1.4 回归（v1.1 起即存在的潜伏 bug）：内联规则命中后必须推进 state.pos ————
+// 此前规则只 push token 不动 pos，renderMarkdown 遇到任何 [[ ]] 直接抛
+// 「inline rule didn't increment state.pos」——预览含双链的笔记渲染失败。
+// 旧单测只覆盖 renderWikiLinkHtml 纯函数，未经过 markdown-it 管线，故未发现。
+import { renderMarkdown } from '@/lib/markdown/render'
+
+describe('wikilink 内联规则经 renderMarkdown 管线（v1.4 回归）', () => {
+  it('渲染 [[标题]] 不抛错且产出锚点', () => {
+    const html = renderMarkdown('前 [[笔记A]] 后')
+    expect(html).toContain('data-wikilink="笔记A"')
+    expect(html).toContain('>笔记A</a>')
+    expect(html).toContain('前 ')
+    expect(html).toContain(' 后')
+  })
+
+  it('别名形式与同名多篇消歧属性不受 pos 修复影响', () => {
+    const html = renderMarkdown('[[目标|别名]]')
+    expect(html).toContain('>别名</a>')
+  })
+})

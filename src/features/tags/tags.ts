@@ -47,3 +47,39 @@ export function collectTags(notes: Pick<NoteMeta, 'tags'>[]): TagCount[] {
   }
   return [...counts.values()].sort((a, b) => b.count - a.count || tagCollator.compare(a.tag, b.tag))
 }
+
+/** 判断标签是否命中（大小写不敏感，F-202 口径） */
+function tagMatches(tag: string, target: string): boolean {
+  return tag.toLowerCase() === target.trim().toLowerCase()
+}
+
+/**
+ * 标签重命名（F-1005）：大小写不敏感匹配旧名，替换为新名。
+ * 新名与既有标签仅大小写不同时按既有大小写归一（addTag 语义），天然合并。
+ */
+export function renameTagIn(tags: string[], from: string, to: string): string[] {
+  const target = from.trim()
+  const next = to.trim()
+  if (target === '' || next === '') return tags
+  const lowerNext = next.toLowerCase()
+  // 幸存标签里已有同名（仅大小写不同）目标 → 纯移除（合并语义，保留既有形态）
+  const mergedIntoExisting = tags.some((tag) => !tagMatches(tag, target) && tag.toLowerCase() === lowerNext)
+  let matched = false
+  const result: string[] = []
+  for (const tag of tags) {
+    if (tagMatches(tag, target)) {
+      if (!matched && !mergedIntoExisting) result.push(next) // 首个命中原位替换
+      matched = true
+      continue
+    }
+    result.push(tag)
+  }
+  return matched ? result : tags
+}
+
+/** 标签合并（F-1005）：source 的笔记获得 into 标签，source 移除；into 大小写归一 */
+export function mergeTagIn(tags: string[], from: string, into: string): string[] {
+  const stripped = removeTag(tags, from)
+  if (stripped.length === tags.length) return tags // 未命中 source：原样返回
+  return addTag(stripped, into)
+}

@@ -152,6 +152,15 @@ describe('命名规范（F-304/F-305）', () => {
     expect(extensionFor('application/octet-stream')).toBe('bin')
   })
 
+  it('F-1003 非图片白名单映射：pdf/txt/md/mp3/wav，未知回退 bin', () => {
+    expect(extensionFor('application/pdf')).toBe('pdf')
+    expect(extensionFor('text/plain')).toBe('txt')
+    expect(extensionFor('text/markdown')).toBe('md')
+    expect(extensionFor('audio/mpeg')).toBe('mp3')
+    expect(extensionFor('audio/x-wav')).toBe('wav')
+    expect(extensionFor('application/octet-stream')).toBe('bin')
+  })
+
   it('noteToMarkdown：非空标题补 H1；正文已以同标题开头则原样；无标题内容原样', () => {
     expect(noteToMarkdown({ title: 'T', content: 'body' })).toBe('# T\n\nbody')
     expect(noteToMarkdown({ title: 'T', content: '# T\nbody' })).toBe('# T\nbody')
