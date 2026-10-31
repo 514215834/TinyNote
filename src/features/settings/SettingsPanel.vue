@@ -235,6 +235,56 @@ function setFontSize(delta: number): void {
             </div>
           </section>
 
+          <!-- F-1001：LaTeX 公式渲染开关 -->
+          <section aria-label="LaTeX 公式" class="mb-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-xs font-medium text-gray-400">{{ t('settings.math') }}</p>
+                <p class="mt-0.5 text-[11px] text-gray-400/80 dark:text-neutral-500">
+                  {{ t('settings.mathDesc') }}
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                :aria-checked="settings.mathEnabled"
+                class="relative h-5 w-9 shrink-0 rounded-full transition-colors"
+                :class="settings.mathEnabled ? 'bg-accent' : 'bg-gray-300 dark:bg-neutral-600'"
+                @click="settings.mathEnabled = !settings.mathEnabled"
+              >
+                <span
+                  class="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all"
+                  :class="settings.mathEnabled ? 'left-[1.125rem]' : 'left-0.5'"
+                ></span>
+              </button>
+            </div>
+          </section>
+
+          <!-- F-1002：Mermaid 图表渲染开关 -->
+          <section aria-label="Mermaid 图表" class="mb-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-xs font-medium text-gray-400">{{ t('settings.mermaid') }}</p>
+                <p class="mt-0.5 text-[11px] text-gray-400/80 dark:text-neutral-500">
+                  {{ t('settings.mermaidDesc') }}
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                :aria-checked="settings.mermaidEnabled"
+                class="relative h-5 w-9 shrink-0 rounded-full transition-colors"
+                :class="settings.mermaidEnabled ? 'bg-accent' : 'bg-gray-300 dark:bg-neutral-600'"
+                @click="settings.mermaidEnabled = !settings.mermaidEnabled"
+              >
+                <span
+                  class="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all"
+                  :class="settings.mermaidEnabled ? 'left-[1.125rem]' : 'left-0.5'"
+                ></span>
+              </button>
+            </div>
+          </section>
+
           <!-- 正文字体 -->
           <section aria-label="正文字体" class="mb-5">
             <p class="mb-2 text-xs font-medium text-gray-400">{{ t('settings.font') }}</p>

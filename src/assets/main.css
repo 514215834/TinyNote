@@ -276,3 +276,37 @@ html.dark {
 .hljs-strong {
   font-weight: 600;
 }
+
+/* F-1001：LaTeX 公式占位与 KaTeX 渲染形态（KaTeX 自身样式经动态 import 按需注入） */
+.math-inline {
+  white-space: normal;
+}
+.math-block {
+  margin: 0.75rem 0;
+  overflow-x: auto;
+  text-align: center;
+}
+.math-inline > .katex,
+.math-block > .katex {
+  font-size: 1.05em;
+}
+
+/* F-1002：Mermaid 图表渲染形态（SVG 随内容自适应，深浅色由 mermaid 主题内联） */
+.math-mermaid {
+  margin: 0.75rem 0;
+  overflow-x: auto;
+  text-align: center;
+}
+.math-mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+.mermaid-error {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: #b45309;
+}
+.dark .mermaid-error {
+  color: #fbbf24;
+}

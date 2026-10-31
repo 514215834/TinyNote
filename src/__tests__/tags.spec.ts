@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Note } from '@/types'
-import { addTag, collectTags, parseTagInput, removeTag } from '@/features/tags/tags'
+import { addTag, collectTags, mergeTagIn, parseTagInput, removeTag, renameTagIn } from '@/features/tags/tags'
 
 function makeNote(id: string, tags: string[]): Note {
   return {
@@ -74,5 +74,28 @@ describe('collectTags（F-202 标签云）', () => {
 
   it('无标签返回空数组', () => {
     expect(collectTags([makeNote('a', [])])).toEqual([])
+  })
+})
+
+// ———— F-1005 标签管理（纯函数口径） ————
+describe('renameTagIn / mergeTagIn（F-1005）', () => {
+  it('重命名：大小写不敏感匹配旧名，新名经 addTag 归一', () => {
+    expect(renameTagIn(['工作', '生活'], '工作', '深度工作')).toEqual(['深度工作', '生活']) // 原位替换保留槽位
+    expect(renameTagIn(['Work'], 'work', 'WORK')).toEqual(['WORK']) // 大小写改写是显式意图
+  })
+
+  it('重命名目标与另一既有标签仅大小写不同时天然合并', () => {
+    expect(renameTagIn(['a', 'B'], 'a', 'b')).toEqual(['B'])
+  })
+
+  it('旧名未命中 / 新名为空：原样返回', () => {
+    const tags = ['工作']
+    expect(renameTagIn(tags, '不存在的', '新名')).toBe(tags)
+    expect(renameTagIn(tags, '工作', '  ')).toBe(tags)
+  })
+
+  it('合并：source 移除、into 注入（归一去重）；未命中 source 原样返回', () => {
+    expect(mergeTagIn(['a', 'b'], 'A', 'b')).toEqual(['b'])
+    expect(mergeTagIn(['a'], 'x', 'b')).toEqual(['a'])
   })
 })

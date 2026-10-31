@@ -6,6 +6,7 @@ import type { EditorView } from '@codemirror/view'
 import type { NoteMeta } from '@/types'
 import { t } from '@/lib/i18n'
 import { renderMarkdown } from '@/lib/markdown/render'
+import { enhancePreview } from '@/lib/markdown/enhance'
 import { extractHeadings } from '@/lib/markdown/outline'
 import { useAutoSave } from './composables/useAutoSave'
 import { useHotkeys } from '@/composables/shortcuts'
@@ -22,7 +23,7 @@ import { backlinkRefsOf } from '@/features/links/linkIndex'
 import type { WikiLinkCandidate } from '@/features/editor/wikilinkComplete'
 import LinksPanel from '@/features/links/LinksPanel.vue'
 import HistoryPanel from '@/features/history/HistoryPanel.vue'
-import { makeImageMarkdown, pickImageFiles, isImageFile } from '@/features/editor/attachments'
+import { makeAttachmentMarkdown, pickAttachableFiles, isImageFile } from '@/features/editor/attachments'
 import { attachmentRef } from '@/lib/markdown/attachmentRef'
 import { htmlToMarkdown, htmlHasText } from '@/features/import/htmlToMarkdown'
 import NoteCodeEditor from '@/features/editor/NoteCodeEditor.vue'
@@ -139,9 +140,37 @@ watchDebounced(
   },
   { debounce: 250 },
 )
-const html = computed(() =>
-  mode.value === 'edit' ? '' : renderMarkdown(renderSource.value, { attachmentUrls: attachmentUrls.value }),
+// F-1001/F-1002：深浅色切换 → 渲染纪元 +1 强制重算（mermaid SVG 主题随渲染内联，无法靠 CSS 切换）
+const renderEpoch = ref(0)
+watch(
+  () => settings.isDark,
+  () => {
+    renderEpoch.value += 1
+  },
 )
+const html = computed(() => {
+  void renderEpoch.value
+  return mode.value === 'edit'
+    ? ''
+    : renderMarkdown(renderSource.value, {
+        attachmentUrls: attachmentUrls.value,
+        attachments: { ...attachmentsStore.list },
+        math: settings.mathEnabled,
+      })
+})
+
+// F-1001/F-1002：预览增强（KaTeX / Mermaid 动态渲染）——v-html 更新后对真实 DOM 执行
+watch(html, async () => {
+  await nextTick()
+  const root = previewEl.value
+  if (root !== null) {
+    void enhancePreview(root, {
+      math: settings.mathEnabled,
+      mermaid: settings.mermaidEnabled,
+      dark: settings.isDark,
+    })
+  }
+})
 
 // F-302：预览态的大纲（标题结构与预览锚点逐字对应）
 const headings = computed(() => extractHeadings(renderSource.value))
@@ -218,13 +247,13 @@ function onPaste(event: ClipboardEvent): void {
   // ClipboardEvent 规范不声明修饰键（lib.dom 同样缺失），浏览器实际携带：显式收窄读取
   const modifiers = event as ClipboardEvent & { ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean }
   if ((modifiers.ctrlKey === true || modifiers.metaKey === true) && modifiers.shiftKey === true) return
-  const images = pickImageFiles(transfer.files ?? [])
+  const attachables = pickAttachableFiles(transfer.files ?? [])
   const html = transfer.getData('text/html')
   const richText = html !== '' && htmlHasText(html)
-  if (!richText && images.length > 0) {
+  if (!richText && attachables.length > 0) {
     event.preventDefault()
     event.stopPropagation()
-    void insertImages(images)
+    void insertAttachments(attachables)
     return
   }
   if (html === '') return
@@ -276,23 +305,24 @@ async function pasteHtmlToMarkdown(html: string): Promise<string> {
 function onDrop(event: DragEvent): void {
   const files = event.dataTransfer?.files
   if (!files?.length) return
-  const images = pickImageFiles(files)
-  if (images.length === 0) return
+  const attachables = pickAttachableFiles(files)
+  if (attachables.length === 0) return
   event.preventDefault()
-  void insertImages(images)
+  void insertAttachments(attachables)
 }
-async function insertImages(files: File[]): Promise<void> {
+async function insertAttachments(files: File[]): Promise<void> {
   const view = editorView.value
   if (!view) return
   let pos = Math.min(view.state.selection.main.head, content.value.length)
   for (const file of files) {
     const id = await attachmentsStore.attach(props.note.id, file)
-    const image = makeImageMarkdown(id, file.name)
+    // F-1003：图片插 ![]()（预览为图片），非图片（PDF/文本/音频）插 []()（预览为附件卡片）
+    const markdown = makeAttachmentMarkdown(id, file.name, file.type)
     view.dispatch({
-      changes: { from: pos, to: pos, insert: image },
-      selection: { anchor: pos + image.length },
+      changes: { from: pos, to: pos, insert: markdown },
+      selection: { anchor: pos + markdown.length },
     })
-    pos += image.length // 多图顺序插入：每次 dispatch 后光标推进，下一张接在后面
+    pos += markdown.length // 多文件顺序插入：每次 dispatch 后光标推进，下一个接在后面
   }
 }
 

@@ -178,6 +178,54 @@ registerDictionary('en', {
   'clip.confirmForce': 'Force re-import',
   'clip.cancel': 'Cancel',
 
+  /* v1.4 common (F-1003/F-1004/F-1005) */
+  'common.attachment': 'Attachment',
+  'common.attachmentMissing': '[Attachment missing]',
+  'common.download': 'Download',
+  'common.delete': 'Delete',
+  'common.cancel': 'Cancel',
+  'common.confirm': 'Confirm',
+  'common.kindImage': 'Image',
+  'common.kindText': 'Text',
+  'common.kindAudio': 'Audio',
+  'common.kindUnknown': 'File',
+
+  /* F-1001/F-1002 preview rich render */
+  'preview.mermaidError': 'Diagram syntax error: {msg}',
+
+  /* F-1004 attachments panel */
+  'attachments.title': 'Attachments',
+  'attachments.back': 'Back to notes',
+  'attachments.count': '{n} total',
+  'attachments.loading': 'Scanning attachments…',
+  'attachments.empty': 'No attachments yet. Paste or drop images/files while editing and they show up here.',
+  'attachments.noteMissing': 'Note deleted',
+  'attachments.cleanupButton': 'Clean orphans ({n})',
+  'attachments.cleanupConfirm': 'Delete {n} orphan attachment(s), freeing about {size}. This cannot be undone. Continue?',
+  'attachments.deleteConfirm': 'Delete attachment "{name}"? Previews will show a missing placeholder if still referenced.',
+  'attachments.state.content': 'In content',
+  'attachments.state.snapshot': 'Snapshot only',
+  'attachments.state.orphan': 'Orphan',
+  'attachments.kind.pdf': 'PDF',
+  'attachments.kind.audio': 'Audio',
+  'attachments.kind.text': 'Text',
+  'attachments.kind.image': 'Image',
+  'attachments.kind.other': 'Other',
+
+  /* F-1005 tag management */
+  'tags.manageAria': 'Manage tag {tag}',
+  'tags.manageTitle': 'Manage tag: {tag}',
+  'tags.rename': 'Rename',
+  'tags.renameTitle': 'Rename "{tag}" to:',
+  'tags.renameUnchanged': 'New name equals the current tag',
+  'tags.merge': 'Merge into…',
+  'tags.mergeTitle': 'Merge "{tag}" into:',
+  'tags.remove': 'Delete',
+  'tags.removeConfirm': 'Remove tag "{tag}" from all notes? (Notes are kept.)',
+
+  /* Command palette (F-1004) */
+  'commands.openAttachments': 'Open attachments panel',
+
   /* Header data menu */
   'header.dataTitle': 'Data: backup & import',
   'header.dataAria': 'Data menu',
@@ -243,8 +291,11 @@ registerDictionary('en', {
   'settings.accentCustom': 'Custom',
   'settings.accentCustomAria': 'Custom accent color',
   'settings.ambient': 'Ambient glow',
-  'settings.ambientDesc':
-    'Three soft color orbs behind the glass, tinted by the accent color; turn off if it distracts reading',
+  'settings.ambientDesc': 'Three soft color orbs behind the glass, tinted by the accent color; turn off if it distracts reading',
+  'settings.math': 'LaTeX math',
+  'settings.mathDesc': 'Render $…$ inline and $$…$$ block math in preview (KaTeX; never inside code)',
+  'settings.mermaid': 'Mermaid diagrams',
+  'settings.mermaidDesc': 'Render mermaid fenced code blocks as diagrams in preview; errors keep the source',
   'settings.font': 'Body font',
   'settings.fontSystem': 'System',
   'settings.fontSerif': 'Serif',

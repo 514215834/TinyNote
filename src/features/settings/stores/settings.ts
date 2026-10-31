@@ -41,6 +41,10 @@ export const useSettingsStore = defineStore('settings', () => {
   /** 三色环境光晕开关（设置面板）：关闭后背景只剩低饱和渐变底 */
   const ambientEnabled = useLocalStorage('tinynote:ambient', true, { flush: 'sync' })
 
+  // F-1001/F-1002：预览富渲染开关（默认开启；关闭后 $…$ 与 mermaid 围栏保持原文照排）
+  const mathEnabled = useLocalStorage('tinynote:math', true, { flush: 'sync' })
+  const mermaidEnabled = useLocalStorage('tinynote:mermaid', true, { flush: 'sync' })
+
   /** 设置面板（AppHeader 齿轮入口）开关 */
   const panelOpen = ref(false)
   function openPanel(): void {
@@ -108,6 +112,8 @@ export const useSettingsStore = defineStore('settings', () => {
     previewFontSize,
     contentWidth,
     ambientEnabled,
+    mathEnabled,
+    mermaidEnabled,
     panelOpen,
     openPanel,
     closePanel,
