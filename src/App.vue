@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useEventListener } from '@vueuse/core'
 import AppHeader from '@/components/AppHeader.vue'
 import NoteListSidebar from '@/features/notes/NoteListSidebar.vue'
 import { useNotesStore } from '@/features/notes/stores/notes'
@@ -12,6 +13,8 @@ import BackupBanner from '@/features/backup/BackupBanner.vue'
 import UpdateBanner from '@/features/pwa/UpdateBanner.vue'
 import CommandPalette from '@/features/search/CommandPalette.vue'
 import SettingsPanel from '@/features/settings/SettingsPanel.vue'
+import ImportDialog from '@/features/import/ImportDialog.vue'
+import { useImportStore, isImportableFile } from '@/features/import'
 import { useSyncStore } from '@/features/sync/stores/sync'
 import { useBackup } from '@/features/backup/useBackup'
 import { requestPersistentStorage } from '@/features/pwa/storage'
@@ -28,6 +31,7 @@ const foldersStore = useFoldersStore()
 const settings = useSettingsStore()
 const searchStore = useSearchStore()
 const syncStore = useSyncStore()
+const importStore = useImportStore()
 const commandRegistry = useCommandRegistry()
 const { exportBackupZip } = useBackup()
 
@@ -138,6 +142,27 @@ useHotkeys([
   { combo: 'ctrl+p', handler: () => searchStore.togglePalette() },
   { combo: 'ctrl+d', handler: deleteSelected },
 ])
+
+// F-801：整页拖拽导入。dragover 放行带文件的拖拽（否则浏览器默认打开文件）；
+// drop 命中可导入类型（.md/.zip/.enex）时走导入管线，其余（图片在编辑器外等）仅阻断默认行为。
+// 编辑器内部的图片拖放由 NoteEditor 自身处理器先行接管（事件先于 window 到达）。
+function dragHasFiles(event: DragEvent): boolean {
+  return [...(event.dataTransfer?.types ?? [])].includes('Files')
+}
+
+function onWindowDragOver(event: DragEvent): void {
+  if (dragHasFiles(event)) event.preventDefault()
+}
+
+function onWindowDrop(event: DragEvent): void {
+  if (!dragHasFiles(event)) return
+  event.preventDefault()
+  const files = [...(event.dataTransfer?.files ?? [])].filter(isImportableFile)
+  if (files.length > 0) void importStore.run(files)
+}
+
+useEventListener(window, 'dragover', onWindowDragOver)
+useEventListener(window, 'drop', onWindowDrop)
 </script>
 
 <template>
@@ -170,5 +195,7 @@ useHotkeys([
     <CommandPalette />
     <!-- F-521/F-522：设置面板（外观与缓存管理） -->
     <SettingsPanel />
+    <!-- F-801/F-803/F-804：导入弹窗（统计摘要） -->
+    <ImportDialog />
   </div>
 </template>

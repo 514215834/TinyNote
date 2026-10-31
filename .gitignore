@@ -5,3 +5,7 @@ coverage/
 *.local
 .DS_Store
 .zcode/
+
+# Playwright（E-02）
+test-results/
+playwright-report/

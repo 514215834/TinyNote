@@ -22,7 +22,9 @@ import { backlinkRefsOf } from '@/features/links/linkIndex'
 import type { WikiLinkCandidate } from '@/features/editor/wikilinkComplete'
 import LinksPanel from '@/features/links/LinksPanel.vue'
 import HistoryPanel from '@/features/history/HistoryPanel.vue'
-import { makeImageMarkdown, pickImageFiles } from '@/features/editor/attachments'
+import { makeImageMarkdown, pickImageFiles, isImageFile } from '@/features/editor/attachments'
+import { attachmentRef } from '@/lib/markdown/attachmentRef'
+import { htmlToMarkdown, htmlHasText } from '@/features/import/htmlToMarkdown'
 import NoteCodeEditor from '@/features/editor/NoteCodeEditor.vue'
 import { useBackup } from '@/features/backup/useBackup'
 
@@ -197,16 +199,74 @@ function onEditorReady(view: EditorView): void {
 }
 
 /**
- * F-303：粘贴 / 拖入图片 → 附件落库 → 正文在光标处插入内部引用。
- * 非图片文件不拦截，交还给 CodeMirror 的默认行为（文本/路径拖放）。
+ * F-303/F-802：粘贴分流（capture 阶段——CodeMirror 的 paste 处理在 contentDOM 上，
+ * 气泡阶段到达时纯文本已被写入，会双插）：
+ * ① 文件含图片且 html 无正文文本（截图 / 独立图片复制）→ v0.3 附件管线；
+ * ② text/html 富文本 → turndown 转 Markdown 插入（动态 import 惰性加载）；
+ *    html 内 data: 图片落附件库，file:/blob: 等浏览器不可达引用丢图（已知限制），
+ *    http(s) 保留外链；
+ * ③ Ctrl/Cmd+Shift+V → 不拦截，CodeMirror 默认纯文本粘贴。
  */
 function onPaste(event: ClipboardEvent): void {
-  const files = event.clipboardData?.files
-  if (!files?.length) return
-  const images = pickImageFiles(files)
-  if (images.length === 0) return
+  const transfer = event.clipboardData
+  if (transfer === null) return
+  // ClipboardEvent 规范不声明修饰键（lib.dom 同样缺失），浏览器实际携带：显式收窄读取
+  const modifiers = event as ClipboardEvent & { ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean }
+  if ((modifiers.ctrlKey === true || modifiers.metaKey === true) && modifiers.shiftKey === true) return
+  const images = pickImageFiles(transfer.files ?? [])
+  const html = transfer.getData('text/html')
+  const richText = html !== '' && htmlHasText(html)
+  if (!richText && images.length > 0) {
+    event.preventDefault()
+    event.stopPropagation()
+    void insertImages(images)
+    return
+  }
+  if (html === '') return
   event.preventDefault()
-  void insertImages(images)
+  event.stopPropagation()
+  void insertRichText(html, transfer)
+}
+
+async function insertRichText(html: string, transfer: DataTransfer): Promise<void> {
+  const view = editorView.value
+  if (view === null) return
+  let markdown: string
+  try {
+    markdown = await pasteHtmlToMarkdown(html)
+  } catch {
+    // 转换失败回退纯文本：事件已拦截，默认粘贴不会发生，这里补齐避免丢剪贴板
+    markdown = transfer.getData('text/plain')
+  }
+  const { from, to } = view.state.selection.main
+  view.dispatch({
+    changes: { from, to, insert: markdown },
+    selection: { anchor: from + markdown.length },
+  })
+}
+
+/** 富文本转换预处理：data: 内嵌图片转附件（v0.3 管线），其余不可达 src 建立丢弃映射 */
+async function pasteHtmlToMarkdown(html: string): Promise<string> {
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  const imageSrcMap = new Map<string, string>()
+  for (const img of [...doc.querySelectorAll('img')]) {
+    const src = img.getAttribute('src') ?? ''
+    if (src === '' || /^https?:/i.test(src)) continue
+    if (src.startsWith('data:')) {
+      const blob = await fetch(src)
+        .then((res) => res.blob())
+        .catch(() => null)
+      const type = blob?.type || 'image/png'
+      if (blob !== null && isImageFile({ type, size: blob.size })) {
+        const file = new File([blob], 'pasted-image', { type })
+        const id = await attachmentsStore.attach(props.note.id, file)
+        imageSrcMap.set(src, attachmentRef(id))
+        continue
+      }
+    }
+    imageSrcMap.set(src, '')
+  }
+  return htmlToMarkdown(doc.body.innerHTML, { imageSrcMap })
 }
 function onDrop(event: DragEvent): void {
   const files = event.dataTransfer?.files
@@ -569,7 +629,7 @@ const stats = computed(() => ({ words: countWords(statsSource.value), chars: cou
     </div>
     <div
       class="flex min-h-0 flex-1 gap-3"
-      @paste="onPaste"
+      @paste.capture="onPaste"
       @dragover.prevent
       @drop="onDrop"
     >

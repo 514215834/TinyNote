@@ -142,6 +142,24 @@ registerDictionary('zh-CN', {
   'graph.emptyFiltered': '当前过滤范围内没有笔记',
   'graph.resetView': '复位视图',
 
+  /* 导入互操作（F-801/F-803/F-804） */
+  'import.title': '导入结果',
+  'import.working': '正在导入…',
+  'import.close': '关闭',
+  'import.summaryNotes': '笔记 {n} 篇',
+  'import.summaryFolders': '新建文件夹 {n} 个',
+  'import.summaryAttachments': '附件 {n} 个',
+  'import.summarySkipped': '跳过 {n} 项',
+  'import.summaryFailed': '失败 {n} 项',
+  'import.sourceLine': '来源：{url}',
+  'import.reasonUnsupported': '不支持的文件类型（支持 .md / .zip / .enex）',
+  'import.reasonEmptyFile': '空文件，跳过',
+  'import.reasonEmptyRow': '空行，跳过',
+  'import.reasonAttachmentSkipped': '附件未满足图片白名单或超过 10MB 上限',
+  'import.reasonWriteFailed': '写入失败：{msg}',
+  'import.reasonZipFailed': 'zip 解析失败：{msg}',
+  'import.reasonParseFailed': '解析失败：{msg}',
+
   /* 顶栏数据菜单 */
   'header.dataTitle': '数据：备份导出 / 导入',
   'header.dataAria': '数据菜单',
@@ -156,6 +174,8 @@ registerDictionary('zh-CN', {
   'header.exportNotes': '导出全部笔记',
   'header.exportNotesDesc': '.md zip（不含附件，通用可读）',
   'header.fileAria': '选择备份文件',
+  'header.importFiles': '导入文件',
+  'header.importFilesDesc': 'Markdown / ENEX / Notion 包（全量插入，不动现有数据）',
   'header.exportFailed': '导出失败：{msg}',
   'header.importConfirm':
     '导入备份将覆盖当前全部笔记、文件夹与附件，且不可撤销。\n建议先「导出全量备份」留存当前数据。确定继续？',

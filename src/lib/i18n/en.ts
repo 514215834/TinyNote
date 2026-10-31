@@ -144,6 +144,24 @@ registerDictionary('en', {
   'graph.emptyFiltered': 'No notes in the current scope',
   'graph.resetView': 'Reset view',
 
+  /* Import interop (F-801/F-803/F-804) */
+  'import.title': 'Import result',
+  'import.working': 'Importing…',
+  'import.close': 'Close',
+  'import.summaryNotes': '{n} notes',
+  'import.summaryFolders': '{n} folders created',
+  'import.summaryAttachments': '{n} attachments',
+  'import.summarySkipped': '{n} skipped',
+  'import.summaryFailed': '{n} failed',
+  'import.sourceLine': 'Source: {url}',
+  'import.reasonUnsupported': 'Unsupported file type (.md / .zip / .enex only)',
+  'import.reasonEmptyFile': 'Empty file, skipped',
+  'import.reasonEmptyRow': 'Empty row, skipped',
+  'import.reasonAttachmentSkipped': 'Attachment not in image whitelist or over the 10MB limit',
+  'import.reasonWriteFailed': 'Write failed: {msg}',
+  'import.reasonZipFailed': 'Failed to read zip: {msg}',
+  'import.reasonParseFailed': 'Failed to parse: {msg}',
+
   /* Header data menu */
   'header.dataTitle': 'Data: backup & import',
   'header.dataAria': 'Data menu',
@@ -158,6 +176,8 @@ registerDictionary('en', {
   'header.exportNotes': 'Export all notes',
   'header.exportNotesDesc': '.md zip (no attachments, portable)',
   'header.fileAria': 'Choose a backup file',
+  'header.importFiles': 'Import files',
+  'header.importFilesDesc': 'Markdown / ENEX / Notion packs (insert-only, existing data untouched)',
   'header.exportFailed': 'Export failed: {msg}',
   'header.importConfirm':
     'Importing a backup overwrites ALL current notes, folders and attachments, and cannot be undone.\nConsider exporting a full backup first. Continue?',

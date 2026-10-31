@@ -61,6 +61,7 @@ export default defineConfig({
   test: {
     environment: 'happy-dom',
     setupFiles: ['./src/__tests__/setup.ts'],
+    exclude: ['**/node_modules/**', '**/dist/**', 'e2e/**'], // e2e 归 Playwright（E-02），vitest 不收集
   },
 })
 
